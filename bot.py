@@ -1,3 +1,4 @@
+import os
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -23,7 +24,7 @@ bot_settings = {
     "question_words": ["who","what","when","where","why","how","can"],
     "recent_messages": [],
     "groq_model": "llama-3.1-8b-instant",
-    "groq_api_key": "GROQ_API_KEY_PLACEHOLDER"
+    "groq_api_key": os.getenv("GROQ_API_KEY")  # Read from env variable
 }
 
 # Only this user can run restricted slash commands
@@ -133,4 +134,4 @@ def run_api():
 threading.Thread(target=run_api).start()
 
 # ---------------- Run Bot ----------------
-bot.run("DISCORD_BOT_TOKEN_PLACEHOLDER")
+bot.run(os.getenv("DISCORD_BOT_TOKEN"))  # Read from env variable
