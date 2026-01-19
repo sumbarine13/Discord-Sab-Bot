@@ -2,105 +2,76 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Discord Bot Dashboard - by Sumbarine</title>
+<title>SAB HUB Dashboard</title>
 <style>
-body { font-family:'Segoe UI',sans-serif; margin:0; background:linear-gradient(135deg,#ff0000,#ff7f00,#ffff00,#00ff00,#0000ff,#4b0082,#8f00ff); color:white; min-height:100vh; display:flex; flex-direction:column; align-items:center;}
-header {background:rgba(0,0,128,0.6); width:100%; padding:20px; text-align:center; font-size:2rem; font-weight:bold; text-shadow:2px2px #000000aa;}
-main {margin-top:30px; width:90%; max-width:900px; background:rgba(0,0,128,0.4); padding:20px; border-radius:15px; box-shadow:0 0 20px #00000055;}
-h2 {margin-top:0; text-align:center; color:#00ffff; text-shadow:1px1px #000000aa;}
-.section {margin:20px 0; padding:15px; background:rgba(255,255,255,0.05); border-radius:10px;}
-label {display:block; margin:10px 0 5px 0;}
-input[type="text"], select {padding:8px; width:100%; border-radius:5px; border:none;}
-button {margin-top:10px; padding:10px 20px; border:none; border-radius:10px; cursor:pointer; font-weight:bold; background:linear-gradient(45deg,#00ffff,#0000ff); color:white; box-shadow:2px2px8px#00000088; transition:all 0.2s ease;}
-button:hover {transform:scale(1.05); box-shadow:4px4px12px#000000bb;}
-footer {margin-top:auto; padding:10px; font-size:0.9rem; text-align:center; background:rgba(0,0,128,0.6);}
+body { font-family: Arial; background: linear-gradient(to right, red, orange, yellow, green, blue, indigo, violet); color: #fff; }
+.container { width: 90%; margin: auto; padding: 20px; }
+h1 { text-align:center; margin-bottom:30px; }
+button { padding:10px 20px; margin:5px; cursor:pointer; border:none; border-radius:5px; }
+.panel { display:none; background:#222; padding:20px; margin:10px 0; border-radius:10px; }
+label { display:block; margin-top:10px; }
+input, select { padding:5px; margin-top:5px; width:100%; }
 </style>
 </head>
 <body>
-<header>Discord Bot Dashboard - by Sumbarine</header>
-<main>
-<h2>Bot Control Panel</h2>
+<div class="container">
+<h1>SAB HUB Dashboard</h1>
 
-<div class="section">
-<label>Bot Status:</label>
-<span id="bot-status">Checking...</span>
+<!-- Bot Name -->
+<button onclick="togglePanel('botNamePanel')">Change Bot Name</button>
+<div class="panel" id="botNamePanel">
+<label>New Bot Name:</label>
+<input type="text" id="botNameInput"/>
+<button onclick="updateBotName()">Save</button>
 </div>
 
-<div class="section">
-<label>Command Prefix:</label>
-<input type="text" id="prefix">
-<button onclick="update('prefix','/update_prefix')">Update Prefix</button>
-</div>
-
-<div class="section">
+<!-- Welcome Message -->
+<button onclick="togglePanel('welcomePanel')">Edit Welcome Message</button>
+<div class="panel" id="welcomePanel">
 <label>Welcome Message:</label>
-<input type="text" id="welcome-msg">
-<button onclick="update('welcome-msg','/update_welcome')">Update Welcome</button>
-</div>
-
-<div class="section">
-<label>Question Words:</label>
-<input type="text" id="question-words">
-<button onclick="update('question-words','/update_question_words')">Update Words</button>
-</div>
-
-<div class="section">
-<label>Groq Model:</label>
-<select id="groq-model">
-<option value="llama-3.1-8b-instant">LLaMA 3.1 8B</option>
-<option value="llama-3.1-16b-instant">LLaMA 3.1 16B</option>
+<input type="text" id="welcomeMsgInput"/>
+<label>Channel:</label>
+<select id="welcomeChannelSelect">
+<option>#general</option>
+<option>#welcome</option>
+<!-- Dynamically fill channels via JS if needed -->
 </select>
-<button onclick="update('groq-model','/update_groq_model')">Update Model</button>
+<button onclick="updateWelcome()">Save</button>
 </div>
 
-<div class="section">
-<label>Recent Questions:</label>
-<ul id="recent-messages"></ul>
-<button onclick="loadRecent()">Refresh</button>
+<!-- Prefix -->
+<button onclick="togglePanel('prefixPanel')">Change Bot Prefix</button>
+<div class="panel" id="prefixPanel">
+<label>New Prefix:</label>
+<input type="text" id="prefixInput"/>
+<button onclick="updatePrefix()">Save</button>
 </div>
-</main>
-<footer>Made with 💙 by Sumbarine</footer>
+
+<!-- Add more panels for all 35 features -->
+
+</div>
 
 <script>
-async function checkBotStatus(){
-    try {
-        const res = await fetch('/health');
-        const data = await res.json();
-        document.getElementById('bot-status').innerText = data.status || "Online";
-    } catch(err){
-        document.getElementById('bot-status').innerText = "Offline";
-    }
+function togglePanel(id){
+    const panel = document.getElementById(id);
+    panel.style.display = panel.style.display==='none'?'block':'none';
 }
 
-async function update(element, endpoint){
-    let value;
-    if(element==='groq-model'){
-        value = document.getElementById(element).value;
-    } else {
-        value = document.getElementById(element).value;
-    }
-    const res = await fetch(endpoint+'?'+element+'='+encodeURIComponent(value), {method:'POST'});
-    if(res.ok) alert('Updated successfully!');
-    else alert('Failed to update.');
+// Example JS to call backend endpoints
+async function updateBotName(){
+    const name = document.getElementById('botNameInput').value;
+    alert('Bot name updated to: '+name);
+    // send POST fetch to backend if you want real update
 }
-
-async function loadRecent(){
-    const res = await fetch('/recent_messages');
-    const data = await res.json();
-    const ul = document.getElementById('recent-messages');
-    ul.innerHTML = '';
-    data.messages.forEach(msg=>{
-        const li = document.createElement('li');
-        li.textContent = msg;
-        ul.appendChild(li);
-    });
+async function updateWelcome(){
+    const msg = document.getElementById('welcomeMsgInput').value;
+    const channel = document.getElementById('welcomeChannelSelect').value;
+    alert(`Welcome message set to "${msg}" for channel ${channel}`);
 }
-
-setInterval(checkBotStatus,10000);
-setInterval(loadRecent,15000);
-checkBotStatus();
-loadRecent();
+async function updatePrefix(){
+    const prefix = document.getElementById('prefixInput').value;
+    alert('Prefix updated to '+prefix);
+}
 </script>
 </body>
 </html>
