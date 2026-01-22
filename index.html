@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bot Control Dashboard</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(90deg, #1a1a1a, #333);
+    color: #fff;
+    text-align: center;
+    padding: 50px;
+}
+h1 { margin-bottom: 40px; }
+button {
+    font-size: 20px;
+    padding: 15px 30px;
+    margin: 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+#onBtn { background-color: #28a745; }
+#onBtn:hover { background-color: #218838; }
+#offBtn { background-color: #dc3545; }
+#offBtn:hover { background-color: #c82333; }
+#status { margin-top: 30px; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<h1>Discord Bot Control</h1>
+
+<button id="onBtn" onclick="toggleBot('on')">Turn Bot ON</button>
+<button id="offBtn" onclick="toggleBot('off')">Turn Bot OFF</button>
+
+<p id="status">Status: Unknown</p>
+
+<script>
+async function toggleBot(action) {
+    try {
+        const res = await fetch(`/${action}`, { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('status').innerText = `Status: ${data.status}`;
+    } catch (err) {
+        document.getElementById('status').innerText = 'Status: Error';
+        console.error(err);
+    }
+}
+
+// Optional: Poll server every 5 seconds to update status
+setInterval(async () => {
+    try {
+        const res = await fetch('/status');
+        const data = await res.json();
+        document.getElementById('status').innerText = `Status: ${data.status}`;
+    } catch {}
+}, 5000);
+</script>
+
+</body>
+</html>
