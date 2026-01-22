@@ -2,61 +2,137 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Bot Control Dashboard</title>
+<title>SAB HUB Control Panel</title>
+
 <style>
 body {
     font-family: Arial, sans-serif;
-    background: linear-gradient(90deg, #1a1a1a, #333);
-    color: #fff;
+    background: linear-gradient(135deg, #1e1e2f, #2b2b45);
+    color: #ffffff;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 500px;
+    margin: 100px auto;
+    background: #111827;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.6);
     text-align: center;
-    padding: 50px;
 }
-h1 { margin-bottom: 40px; }
-button {
-    font-size: 20px;
-    padding: 15px 30px;
-    margin: 20px;
+
+h1 {
+    margin-bottom: 20px;
+}
+
+input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 6px;
     border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.3s;
+    margin-bottom: 15px;
+    font-size: 16px;
 }
-#onBtn { background-color: #28a745; }
-#onBtn:hover { background-color: #218838; }
-#offBtn { background-color: #dc3545; }
-#offBtn:hover { background-color: #c82333; }
-#status { margin-top: 30px; font-size: 18px; }
+
+button {
+    padding: 12px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 10px;
+}
+
+.locked {
+    background: #ef4444;
+    color: white;
+}
+
+.unlocked {
+    background: #22c55e;
+    color: black;
+}
+
+.toggle-on {
+    background: #22c55e;
+}
+
+.toggle-off {
+    background: #ef4444;
+}
+
+#dashboard {
+    display: none;
+}
+
+.status {
+    font-weight: bold;
+    margin-top: 15px;
+}
 </style>
 </head>
+
 <body>
 
-<h1>Discord Bot Control</h1>
+<div class="container" id="login">
+    <h1>SAB HUB</h1>
+    <p>Enter dashboard password</p>
+    <input type="password" id="passwordInput" placeholder="Password">
+    <button class="locked" onclick="unlock()">Unlock</button>
+    <p id="error" style="color:red;"></p>
+</div>
 
-<button id="onBtn" onclick="toggleBot('on')">Turn Bot ON</button>
-<button id="offBtn" onclick="toggleBot('off')">Turn Bot OFF</button>
+<div class="container" id="dashboard">
+    <h1>Bot Control</h1>
 
-<p id="status">Status: Unknown</p>
+    <button id="toggleBtn" class="toggle-off" onclick="toggleBot()">
+        BOT OFF
+    </button>
+
+    <div class="status" id="statusText">
+        Status: OFFLINE
+    </div>
+
+    <p style="margin-top:20px; font-size:14px; opacity:0.7;">
+        Dashboard loaded successfully
+    </p>
+</div>
 
 <script>
-async function toggleBot(action) {
-    try {
-        const res = await fetch(`/${action}`, { method: 'POST' });
-        const data = await res.json();
-        document.getElementById('status').innerText = `Status: ${data.status}`;
-    } catch (err) {
-        document.getElementById('status').innerText = 'Status: Error';
-        console.error(err);
+const PASSWORD = "AaravBisht123";
+let botOn = false;
+
+function unlock() {
+    const input = document.getElementById("passwordInput").value;
+    if (input === PASSWORD) {
+        document.getElementById("login").style.display = "none";
+        document.getElementById("dashboard").style.display = "block";
+    } else {
+        document.getElementById("error").innerText = "Incorrect password";
     }
 }
 
-// Optional: Poll server every 5 seconds to update status
-setInterval(async () => {
-    try {
-        const res = await fetch('/status');
-        const data = await res.json();
-        document.getElementById('status').innerText = `Status: ${data.status}`;
-    } catch {}
-}, 5000);
+function toggleBot() {
+    botOn = !botOn;
+
+    const btn = document.getElementById("toggleBtn");
+    const status = document.getElementById("statusText");
+
+    if (botOn) {
+        btn.innerText = "BOT ON";
+        btn.className = "toggle-on";
+        status.innerText = "Status: ONLINE";
+    } else {
+        btn.innerText = "BOT OFF";
+        btn.className = "toggle-off";
+        status.innerText = "Status: OFFLINE";
+    }
+
+    // Placeholder for backend call if you add one later
+    console.log("Bot state:", botOn ? "ON" : "OFF");
+}
 </script>
 
 </body>
