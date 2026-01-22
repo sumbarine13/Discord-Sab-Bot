@@ -205,3 +205,16 @@ async def on_message(message):
 
 # ================= RUN BOT =================
 bot.run(DISCORD_TOKEN)
+# at the end of bot.py
+import os
+import asyncio
+from aiohttp import web
+
+async def handle(request):
+    return web.Response(text="Bot is running")
+
+app = web.Application()
+app.router.add_get("/", handle)
+
+# Use Render's assigned PORT or default 10000
+web.run_app(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
