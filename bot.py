@@ -218,3 +218,43 @@ app.router.add_get("/", handle)
 
 # Use Render's assigned PORT or default 10000
 web.run_app(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+import os
+import asyncio
+from aiohttp import web
+import discord
+from discord.ext import commands
+from groq import Groq
+from dotenv import load_dotenv
+
+# ================= ENV =================
+load_dotenv()
+DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+GROQ_TOKEN = os.getenv("GROQ_TOKEN")
+OWNER_ID = 1307042499898118246
+
+# ================= BOT =================
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+ai_client = Groq(api_key=GROQ_TOKEN)
+
+# ================= DUMMY WEB SERVER =================
+async def handle(request):
+    return web.Response(text="Bot is running")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
+    await site.start()
+    print(f"Web server running on port {os.environ.get('PORT', 10000)}")
+
+# ================= RUN BOTH =================
+async def main():
+    await start_web_server()       # start dummy port
+    await bot.start(DISCORD_TOKEN) # start discord bot
+
+asyncio.run(main())
