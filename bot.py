@@ -1,39 +1,33 @@
 import os
-import threading
 import discord
-from discord import app_commands
 from discord.ext import commands
-from fastapi import FastAPI
+from discord import app_commands
+import threading
 import uvicorn
+from fastapi import FastAPI
+from groq import Groq  # Ensure groq is installed and token is set
 
 # ================= CONFIG =================
-TOKEN = os.getenv("DISCORD_BOT_TOKEN") or "YOUR_DISCORD_BOT_TOKEN"
-OWNER_ID = 1307042499898118246
+DISCORD_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or "PUT_YOUR_DISCORD_TOKEN_HERE"
+GROQ_TOKEN = os.getenv("GROQ_TOKEN") or "PUT_YOUR_GROQ_TOKEN_HERE"
+OWNER_ID = 1307042499898118246  # replace with your Discord ID
 
 # ================= DISCORD SETUP =================
 intents = discord.Intents.default()
 intents.members = True
-intents.message_content = True  # Required for message responses
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
+groq_client = Groq(api_key=GROQ_TOKEN)
+
+# Allowed question prefixes
+ALLOWED_STARTS = (
+    "who","what","when","where","which","should","why","how",
+    "advice","suggestions","explanations","instructions","opinions"
+)
 
 def owner_only(interaction: discord.Interaction):
     return interaction.user.id == OWNER_ID
-
-# ================= DISCORD ASSISTANT RULES =================
-ALLOWED_PREFIXES = (
-    "who", "what", "when", "where", "which",
-    "should", "why", "how", "advice", "suggestions",
-    "explanations", "instructions", "opinions"
-)
-
-async def rule_check_response(interaction: discord.Interaction, content: str):
-    if content.strip().lower().startswith(ALLOWED_PREFIXES):
-        await interaction.response.send_message(content)
-    else:
-        await interaction.response.send_message(
-            "Cannot answer: question not allowed by rules.", ephemeral=True
-        )
 
 # ================= EVENTS =================
 @bot.event
@@ -45,14 +39,13 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
-    # Only respond to messages in guilds
-    content = message.content
-    if any(content.lower().startswith(p) for p in ALLOWED_PREFIXES):
-        await message.channel.send(f"Received allowed question: {content}")
-    else:
-        await message.channel.send("I can only answer allowed question types.")
+    if message.content.lower().startswith(ALLOWED_STARTS):
+        # Send prompt to Groq and reply
+        response = groq_client.ask(message.content)
+        await message.channel.send(response)
+    await bot.process_commands(message)
 
-# ================== MAIN SLASH COMMANDS (20) ==================
+# ================= MAIN SLASH COMMANDS (20) =================
 @bot.tree.command(name="ping", description="Check bot latency")
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message(f"Pong! `{round(bot.latency*1000)}ms`")
@@ -109,33 +102,30 @@ async def clear(interaction: discord.Interaction, amount: int):
     await interaction.response.send_message("Cleared.", ephemeral=True)
 
 @bot.tree.command(name="kick", description="Kick user")
-async def kick(interaction: discord.Interaction, user: discord.Member, reason: str="No reason"):
+async def kick(interaction: discord.Interaction, user: discord.Member, reason: str = "No reason"):
     if not owner_only(interaction):
         return await interaction.response.send_message("Not allowed.", ephemeral=True)
     await user.kick(reason=reason)
     await interaction.response.send_message("User kicked.")
 
-# Add remaining 10 main commands (ban, unban, slowmode, etc.) using same format
-# ================= UNIQUE COMMANDS (15) ==================
-# Example: panic_lock, ghost_mode, etc., same format with owner_only check
+# Additional main commands (10 more) omitted for brevity; include ban, unban, slowmode, rename_channel, etc.
 
-# ================= FASTAPI DASHBOARD =================
+# ================= UNIQUE COMMANDS (15) =================
+# Examples: panic_lock, panic_unlock, mass_role_remove, ghost_mode, reset_nicks
+# Additional 10 unique commands omitted for brevity
+
+# ================= KEEP-ALIVE WEB (optional, can omit if tethered) =================
 app = FastAPI()
-BOT_STATUS = {"online": True}
 
 @app.get("/")
 async def root():
-    return {"status": "alive", "bot_online": BOT_STATUS["online"]}
-
-@app.get("/toggle")
-async def toggle():
-    BOT_STATUS["online"] = not BOT_STATUS["online"]
-    return {"bot_online": BOT_STATUS["online"]}
+    return {"status": "alive"}
 
 def run_web():
     uvicorn.run(app, host="0.0.0.0", port=8080)
 
-threading.Thread(target=run_web, daemon=True).start()
+# Threading only if you want HTTP ping to keep bot alive
+# threading.Thread(target=run_web, daemon=True).start()
 
 # ================= RUN BOT =================
-bot.run(TOKEN)
+bot.run(DISCORD_TOKEN)
