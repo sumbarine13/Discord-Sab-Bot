@@ -2,138 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>SAB HUB Control Panel</title>
-
+<title>Bot Dashboard</title>
 <style>
-body {
-    font-family: Arial, sans-serif;
-    background: linear-gradient(135deg, #1e1e2f, #2b2b45);
-    color: #ffffff;
-    margin: 0;
-    padding: 0;
-}
-
-.container {
-    max-width: 500px;
-    margin: 100px auto;
-    background: #111827;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 0 30px rgba(0,0,0,0.6);
-    text-align: center;
-}
-
-h1 {
-    margin-bottom: 20px;
-}
-
-input {
-    width: 100%;
-    padding: 12px;
-    border-radius: 6px;
-    border: none;
-    margin-bottom: 15px;
-    font-size: 16px;
-}
-
-button {
-    padding: 12px 20px;
-    font-size: 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    margin: 10px;
-}
-
-.locked {
-    background: #ef4444;
-    color: white;
-}
-
-.unlocked {
-    background: #22c55e;
-    color: black;
-}
-
-.toggle-on {
-    background: #22c55e;
-}
-
-.toggle-off {
-    background: #ef4444;
-}
-
-#dashboard {
-    display: none;
-}
-
-.status {
-    font-weight: bold;
-    margin-top: 15px;
-}
+body { font-family: Arial; text-align:center; padding:50px; }
+button { font-size: 20px; padding: 10px 20px; cursor:pointer; }
 </style>
 </head>
-
 <body>
-
-<div class="container" id="login">
-    <h1>SAB HUB</h1>
-    <p>Enter dashboard password</p>
-    <input type="password" id="passwordInput" placeholder="Password">
-    <button class="locked" onclick="unlock()">Unlock</button>
-    <p id="error" style="color:red;"></p>
-</div>
-
-<div class="container" id="dashboard">
-    <h1>Bot Control</h1>
-
-    <button id="toggleBtn" class="toggle-off" onclick="toggleBot()">
-        BOT OFF
-    </button>
-
-    <div class="status" id="statusText">
-        Status: OFFLINE
-    </div>
-
-    <p style="margin-top:20px; font-size:14px; opacity:0.7;">
-        Dashboard loaded successfully
-    </p>
-</div>
+<h1>Bot Dashboard</h1>
+<p>Status: <span id="status">Unknown</span></p>
+<button id="toggleBtn">Toggle Bot</button>
 
 <script>
-const PASSWORD = "AaravBisht123";
-let botOn = false;
-
-function unlock() {
-    const input = document.getElementById("passwordInput").value;
-    if (input === PASSWORD) {
-        document.getElementById("login").style.display = "none";
-        document.getElementById("dashboard").style.display = "block";
-    } else {
-        document.getElementById("error").innerText = "Incorrect password";
-    }
+async function fetchStatus() {
+    const res = await fetch('/'); 
+    const data = await res.json();
+    document.getElementById('status').innerText = data.bot_online ? "Online" : "Offline";
 }
-
-function toggleBot() {
-    botOn = !botOn;
-
-    const btn = document.getElementById("toggleBtn");
-    const status = document.getElementById("statusText");
-
-    if (botOn) {
-        btn.innerText = "BOT ON";
-        btn.className = "toggle-on";
-        status.innerText = "Status: ONLINE";
-    } else {
-        btn.innerText = "BOT OFF";
-        btn.className = "toggle-off";
-        status.innerText = "Status: OFFLINE";
-    }
-
-    // Placeholder for backend call if you add one later
-    console.log("Bot state:", botOn ? "ON" : "OFF");
+async function toggleBot() {
+    const res = await fetch('/toggle');
+    const data = await res.json();
+    document.getElementById('status').innerText = data.bot_online ? "Online" : "Offline";
 }
+document.getElementById('toggleBtn').addEventListener('click', toggleBot);
+fetchStatus();
 </script>
-
 </body>
 </html>
