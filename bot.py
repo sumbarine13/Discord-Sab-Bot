@@ -1129,13 +1129,6 @@ async def would_you_rather(interaction: discord.Interaction):
     await log_action("Would You Rather Generated", interaction.user, interaction.user, reply)
 
 
-# 3. Roll Dice
-@tree.command(name="roll_dice", description="Roll a six-sided dice")
-async def roll_dice(interaction: discord.Interaction):
-    result = random.randint(1, 6)
-    await interaction.response.send_message(f"🎲 You rolled a **{result}**!", ephemeral=True)
-    await log_action("Dice Rolled", interaction.user, interaction.user, str(result))
-
 # 4. Random Number
 @tree.command(name="random_number", description="Generate a random number")
 async def random_number(interaction: discord.Interaction, min: int = 1, max: int = 100):
