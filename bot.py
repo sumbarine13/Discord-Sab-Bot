@@ -1276,3 +1276,36 @@ if __name__ == "__main__":
         bot.run(DISCORD_BOT_TOKEN)
     except Exception as e:
         print(f"Error running bot: {e}")
+# =========================
+# BOT RUN & GUILD-SYNC SETUP
+# =========================
+GUILD_IDS = [1366452760467472405, 1398723077004722206]  # Your server IDs
+
+@bot.event
+async def on_ready():
+    # Sync commands to all your guilds for instant availability
+    for guild_id in GUILD_IDS:
+        guild_obj = discord.Object(id=guild_id)
+        await tree.sync(guild=guild_obj)
+    print(f"Logged in as {bot.user} | Commands synced to guilds: {GUILD_IDS}")
+    print("Bot is ready. Whitelisted users can access all commands.")
+
+# Utility to check command visibility
+def is_command_visible(user_id: int, command_type: str = "public") -> bool:
+    """
+    Returns True if the command should show to this user.
+    - command_type: "public" or "moderation"
+    """
+    if command_type == "public":
+        return True
+    elif command_type == "moderation":
+        return user_id in allowed_users
+    return False
+
+# =========================
+# RUN BOT
+# =========================
+import os
+DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+
+bot.run(DISCORD_BOT_TOKEN)
