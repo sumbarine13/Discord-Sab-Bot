@@ -410,15 +410,7 @@ async def remove_timeout(interaction: discord.Interaction, member: discord.Membe
     await log_action("Timeout Removed", member, interaction.user, "Timeout cleared")
 
 
-# 14. Reset a member's nickname
-@tree.command(name="un_nick_member", description="Reset a member's nickname")
-async def un_nick_member(interaction: discord.Interaction, member: discord.Member):
-    if not has_access(interaction):
-        return await silent_fail(interaction)
-    old_nick = member.display_name
-    await member.edit(nick=None)
-    await interaction.response.send_message(f"{member} nickname reset from '{old_nick}'", ephemeral=True)
-    await log_action("Nickname Reset", member, interaction.user, f"Reset from {old_nick}")
+
 
 # 15. Ban a member
 @tree.command(name="ban_member", description="Ban a member from the server")
