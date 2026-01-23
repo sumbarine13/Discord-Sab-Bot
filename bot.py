@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime, timedelta
 import asyncio
+from discord import app_commands
 
 # =========================
 # GROQ SETUP
