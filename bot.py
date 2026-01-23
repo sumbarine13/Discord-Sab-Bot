@@ -409,15 +409,6 @@ async def remove_timeout(interaction: discord.Interaction, member: discord.Membe
     await interaction.response.send_message(f"Timeout removed from {member}.", ephemeral=True)
     await log_action("Timeout Removed", member, interaction.user, "Timeout cleared")
 
-# 13. Nickname a member
-@tree.command(name="nick_member", description="Change a member's nickname")
-async def nick_member(interaction: discord.Interaction, member: discord.Member, *, nickname: str):
-    if not has_access(interaction):
-        return await silent_fail(interaction)
-    old_nick = member.display_name
-    await member.edit(nick=nickname)
-    await interaction.response.send_message(f"{member} nickname changed from '{old_nick}' to '{nickname}'", ephemeral=True)
-    await log_action("Nickname Changed", member, interaction.user, f"{old_nick} -> {nickname}")
 
 # 14. Reset a member's nickname
 @tree.command(name="un_nick_member", description="Reset a member's nickname")
