@@ -1128,14 +1128,6 @@ async def would_you_rather(interaction: discord.Interaction):
     await interaction.response.send_message(reply, ephemeral=True)
     await log_action("Would You Rather Generated", interaction.user, interaction.user, reply)
 
-
-# 4. Random Number
-@tree.command(name="random_number", description="Generate a random number")
-async def random_number(interaction: discord.Interaction, min: int = 1, max: int = 100):
-    number = random.randint(min, max)
-    await interaction.response.send_message(f"🔢 Random number between {min} and {max}: **{number}**", ephemeral=True)
-    await log_action("Random Number Generated", interaction.user, interaction.user, str(number))
-
 # 5. Rock Paper Scissors
 @tree.command(name="rps", description="Play Rock Paper Scissors")
 async def rps(interaction: discord.Interaction, choice: str):
