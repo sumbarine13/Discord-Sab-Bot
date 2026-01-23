@@ -1128,12 +1128,6 @@ async def would_you_rather(interaction: discord.Interaction):
     await interaction.response.send_message(reply, ephemeral=True)
     await log_action("Would You Rather Generated", interaction.user, interaction.user, reply)
 
-# 2. Flip Coin
-@tree.command(name="flip_coin", description="Flip a coin")
-async def flip_coin(interaction: discord.Interaction):
-    result = random.choice(["Heads", "Tails"])
-    await interaction.response.send_message(f"🪙 The coin landed on **{result}**!", ephemeral=True)
-    await log_action("Coin Flipped", interaction.user, interaction.user, result)
 
 # 3. Roll Dice
 @tree.command(name="roll_dice", description="Roll a six-sided dice")
