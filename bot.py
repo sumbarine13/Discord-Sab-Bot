@@ -463,14 +463,19 @@ async def pin_message(interaction: discord.Interaction, channel: discord.TextCha
     await msg.pin()
     await interaction.response.send_message(f"Pinned message {message_id} in {channel.mention}", ephemeral=True)
 
-# 20. Unpin a message
 @tree.command(name="unpin_message", description="Unpin a specific message")
-async def unpin_message(interaction: discord.Interaction, message: discord.Message):
-    if not has_access(interaction):
-        return await silent_fail(interaction)
-    await message.unpin()
-    await interaction.response.send_message("Message unpinned.", ephemeral=True)
-    await log_action("Message Unpinned", message.channel, interaction.user, f"Message ID: {message.id}")
+@app_commands.describe(
+    channel="Channel of the message",
+    message_id="ID of the message to unpin"
+)
+async def unpin_message(interaction: discord.Interaction, channel: discord.TextChannel, message_id: str):
+    try:
+        # Convert message_id to int and fetch the message
+        msg = await channel.fetch_message(int(message_id))
+        await msg.unpin()
+        await interaction.response.send_message("✅ Message unpinned!", ephemeral=True)
+    except Exception as e:
+        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
     # =========================
 # MODERATION COMMANDS (AUTHORIZED USERS ONLY) – PART 4
 # =========================
