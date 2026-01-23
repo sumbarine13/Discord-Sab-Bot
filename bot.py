@@ -455,14 +455,12 @@ async def clear_messages(interaction: discord.Interaction, amount: int = 5, chan
     await interaction.response.send_message(f"Deleted {len(deleted)} messages in {channel.mention}", ephemeral=True)
     await log_action("Messages Cleared", channel, interaction.user, f"{len(deleted)} messages")
 
-# 19. Pin a message
 @tree.command(name="pin_message", description="Pin a specific message")
-async def pin_message(interaction: discord.Interaction, message: discord.Message):
-    if not has_access(interaction):
-        return await silent_fail(interaction)
-    await message.pin()
-    await interaction.response.send_message("Message pinned.", ephemeral=True)
-    await log_action("Message Pinned", message.channel, interaction.user, f"Message ID: {message.id}")
+@app_commands.describe(channel="Channel of the message", message_id="ID of the message to pin")
+async def pin_message(interaction: discord.Interaction, channel: discord.TextChannel, message_id: int):
+    msg = await channel.fetch_message(message_id)
+    await msg.pin()
+    await interaction.response.send_message(f"Pinned message {message_id} in {channel.mention}", ephemeral=True)
 
 # 20. Unpin a message
 @tree.command(name="unpin_message", description="Unpin a specific message")
