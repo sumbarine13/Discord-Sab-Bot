@@ -652,3 +652,25 @@ async def roll_3d6(ctx):
 async def random_pet(ctx):
     pets = ["Dog 🐶", "Cat 🐱", "Rabbit 🐰", "Hamster 🐹", "Parrot 🦜", "Turtle 🐢"]
     await ctx.send(f"🐾 Random pet: {random.choice(pets)}")
+# =========================
+# BOT RUNNER
+# =========================
+
+if __name__ == "__main__":
+    import os
+
+    # Optional: set a default activity/status
+    import asyncio
+
+    async def set_default_status():
+        await bot.wait_until_ready()
+        await bot.change_presence(
+            activity=discord.Game(name="Solving mysteries!"), 
+            status=discord.Status.online
+        )
+
+    bot.loop.create_task(set_default_status())
+
+    # Run the bot
+    TOKEN = os.getenv("DISCORD_BOT_TOKEN") or "YOUR_BOT_TOKEN"
+    bot.run(TOKEN)
