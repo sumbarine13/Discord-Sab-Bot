@@ -9,6 +9,7 @@ import asyncio
 import aiohttp
 import re
 import os
+import random
 
 # =========================
 # BOT SETUP
@@ -68,8 +69,7 @@ async def on_message(message):
             await message.channel.send(reply)
 
     await bot.process_commands(message)
-
-# =========================
+    # =========================
 # WHITELIST / BLACKLIST COMMANDS
 # =========================
 @bot.command(name="whitelist")
@@ -89,10 +89,10 @@ async def blacklist(ctx, member: discord.Member):
     await ctx.send(f"❌ {member.display_name} has been blacklisted from moderation commands.")
 
 # =========================
-# MODERATION COMMANDS (PREFIX) – 35
+# MODERATION COMMANDS (PREFIX) – BASIC
 # =========================
 
-# Example: Panic Lock / Unlock
+# 1. Panic Lock – lock all channels
 @bot.command(name="panic_lock")
 async def panic_lock(ctx):
     if not is_owner(ctx):
@@ -101,6 +101,7 @@ async def panic_lock(ctx):
         await channel.set_permissions(ctx.guild.default_role, send_messages=False)
     await ctx.send("🔒 All channels locked! Panic mode activated.")
 
+# 2. Panic Unlock – unlock all channels
 @bot.command(name="panic_unlock")
 async def panic_unlock(ctx):
     if not is_owner(ctx):
@@ -108,102 +109,6 @@ async def panic_unlock(ctx):
     for channel in ctx.guild.channels:
         await channel.set_permissions(ctx.guild.default_role, send_messages=True)
     await ctx.send("🔓 All channels unlocked! Panic mode deactivated.")
-
-# Additional moderation commands would include:
-# 3. lock_channel
-# 4. unlock_channel
-# 5. add_role
-# 6. remove_role
-# 7. server_info
-# 8. member_info
-# 9. role_info
-# 10. mod_ping
-# 11. clear
-# 12. mod_notes
-# 13. view_notes
-# 14. temp_mute
-# 15. temp_ban
-# 16. add_emoji
-# 17. remove_emoji
-# 18. server_lock
-# 19. server_unlock
-# 20. create_role
-# 21. delete_role
-# 22. create_channel
-# 23. delete_channel
-# 24. top_boosters
-# 25. channel_type
-# 26. server_created
-# 27. my_roles
-# 28. my_info
-# 29. bot_info
-# 30. emoji_list
-# 31. emoji_count
-# 32. maintenance
-# 33-35. Additional utility/mod commands as needed
-
-# =========================
-# PUBLIC FUN COMMANDS (PREFIX) – 20
-# =========================
-
-# Example fun commands
-@bot.command(name="roll")
-async def roll(ctx, sides: int = 6):
-    import random
-    await ctx.send(f"🎲 You rolled a {random.randint(1, sides)}")
-
-@bot.command(name="rps")
-async def rps(ctx, choice: str):
-    import random
-    options = ["rock", "paper", "scissors"]
-    choice = choice.lower()
-    if choice not in options:
-        return await ctx.send("❌ Pick rock, paper, or scissors!")
-    bot_choice = random.choice(options)
-    result = "Tie!"
-    if (choice == "rock" and bot_choice == "scissors") or \
-       (choice == "paper" and bot_choice == "rock") or \
-       (choice == "scissors" and bot_choice == "paper"):
-        result = "You win!"
-    elif choice != bot_choice:
-        result = "You lose!"
-    await ctx.send(f"You chose {choice}, bot chose {bot_choice}. {result}")
-
-# AI-powered fun games using Groq (5/20 public)
-@bot.command(name="would_you_rather")
-async def would_you_rather(ctx):
-    question = "Generate a fun 'Would you rather' question related to Discord servers."
-    reply = await ask_groq(question)
-    await ctx.send(reply)
-
-@bot.command(name="trivia")
-async def trivia(ctx):
-    question = "Give a fun Discord-related trivia question with one answer."
-    reply = await ask_groq(question)
-    await ctx.send(reply)
-
-@bot.command(name="riddle")
-async def riddle(ctx):
-    question = "Give a short Discord-themed riddle."
-    reply = await ask_groq(question)
-    await ctx.send(reply)
-
-@bot.command(name="joke_game")
-async def joke_game(ctx):
-    question = "Tell a clean short Discord joke."
-    reply = await ask_groq(question)
-    await ctx.send(reply)
-
-@bot.command(name="fact_game")
-async def fact_game(ctx):
-    question = "Give a surprising fact about Discord servers."
-    reply = await ask_groq(question)
-    await ctx.send(reply)
-
-# Additional 15 public fun commands (randomized games, messages, etc.) can follow the same pattern# =========================
-# MODERATION COMMANDS CONTINUED (PREFIX) 3–35
-# OWNER ONLY
-# =========================
 
 # 3. Lock specific channel
 @bot.command(name="lock_channel")
@@ -238,8 +143,7 @@ async def remove_role(ctx, member: discord.Member, role: discord.Role):
         return
     await member.remove_roles(role)
     await ctx.send(f"✅ Removed role {role.name} from {member.display_name}")
-
-# 7. Server info
+    # 7. Server info
 @bot.command(name="server_info")
 async def server_info(ctx):
     if not is_owner(ctx):
@@ -292,7 +196,7 @@ async def clear(ctx, amount: int = 10):
     deleted = await ctx.channel.purge(limit=amount)
     await ctx.send(f"🧹 Cleared {len(deleted)} messages.", delete_after=5)
 
-# 12. Mod notes (add)
+# 12. Add mod note
 @bot.command(name="mod_notes")
 async def mod_notes(ctx, member: discord.Member, *, note):
     if not is_owner(ctx):
@@ -356,7 +260,7 @@ async def remove_emoji(ctx, emoji: discord.Emoji):
     await emoji.delete()
     await ctx.send(f"❌ Emoji {emoji.name} removed")
 
-# 18. Server lock (prevents @everyone messaging)
+# 18. Server lock
 @bot.command(name="server_lock")
 async def server_lock(ctx):
     if not is_owner(ctx):
@@ -389,8 +293,7 @@ async def delete_role(ctx, role: discord.Role):
         return
     await role.delete()
     await ctx.send(f"❌ Role {role.name} deleted")
-
-# 22. Create channel
+    # 22. Create channel
 @bot.command(name="create_channel")
 async def create_channel(ctx, *, name):
     if not is_owner(ctx):
@@ -434,16 +337,12 @@ async def server_created(ctx):
 # 27. My roles
 @bot.command(name="my_roles")
 async def my_roles(ctx):
-    if not is_owner(ctx):
-        return
     roles = [r.name for r in ctx.author.roles if r.name != "@everyone"]
     await ctx.send(f"Your roles: {', '.join(roles) if roles else 'None'}")
 
 # 28. My info
 @bot.command(name="my_info")
 async def my_info(ctx):
-    if not is_owner(ctx):
-        return
     embed = discord.Embed(title=f"{ctx.author.display_name} Info", color=discord.Color.blue())
     embed.add_field(name="ID", value=ctx.author.id)
     embed.add_field(name="Joined Server", value=ctx.author.joined_at)
@@ -453,8 +352,6 @@ async def my_info(ctx):
 # 29. Bot info
 @bot.command(name="bot_info")
 async def bot_info(ctx):
-    if not is_owner(ctx):
-        return
     embed = discord.Embed(title="Bot Info", color=discord.Color.blue())
     embed.add_field(name="Bot Name", value=bot.user.name)
     embed.add_field(name="ID", value=bot.user.id)
@@ -464,16 +361,12 @@ async def bot_info(ctx):
 # 30. Emoji list
 @bot.command(name="emoji_list")
 async def emoji_list(ctx):
-    if not is_owner(ctx):
-        return
     emojis = [str(e) for e in ctx.guild.emojis]
     await ctx.send(f"Emojis: {' '.join(emojis) if emojis else 'None'}")
 
 # 31. Emoji count
 @bot.command(name="emoji_count")
 async def emoji_count(ctx):
-    if not is_owner(ctx):
-        return
     count = len(ctx.guild.emojis)
     await ctx.send(f"Total emojis: {count}")
 
@@ -487,13 +380,7 @@ async def maintenance(ctx):
     state = "ON" if maintenance_mode else "OFF"
     await ctx.send(f"⚙️ Maintenance mode is now {state}")
 
-# 33–35. Additional utility/mod commands placeholders
-# Add custom owner-only commands here as needed
-# =========================
-# MODERATION COMMANDS CONTINUED (33–35)
-# =========================
-
-# 33. View audit log (recent 10 actions)
+# 33. View audit log (last 10 entries)
 @bot.command(name="audit_log")
 async def audit_log(ctx, limit: int = 10):
     if not is_owner(ctx):
@@ -517,19 +404,47 @@ async def list_roles(ctx):
     roles = [r.name for r in ctx.guild.roles]
     await ctx.send(f"All server roles ({len(roles)}): {', '.join(roles)}")
 
+# 36. Troll member (kick & DM joke)
+@bot.command(name="troll")
+async def troll(ctx, member: discord.Member):
+    if not is_owner(ctx):
+        return
+    old_roles = [role for role in member.roles if role.name != "@everyone"]
+    invite = await ctx.channel.create_invite(max_age=600, max_uses=1, unique=True)
 
-# =========================
-# PUBLIC FUN COMMANDS – 20 TOTAL
-# 15 fun/randomized, 5 AI (Groq) games
-# =========================
+    try:
+        embed = discord.Embed(
+            title=f"You have been banned from {ctx.guild.name}!",
+            description=(
+                f"Reason: messing around 😜\n\n"
+                f"LOL JK! Join back with this invite: {invite.url}\n"
+                "Your roles will be restored if you rejoin."
+            ),
+            color=discord.Color.blue()
+        )
+        await member.send(embed=embed)
+    except:
+        await member.send(f"You have been banned from {ctx.guild.name}! LOL JK! Use this invite to come back: {invite.url}")
 
+    await member.kick(reason="Messing about")
+    def check(m):
+        return m.id == member.id and m.guild == ctx.guild
 
-# 2. !coin – flip a coin
+    try:
+        rejoined = await bot.wait_for('member_join', timeout=600, check=check)
+        if old_roles:
+            await rejoined.add_roles(*old_roles)
+            await ctx.send(f"✅ {member.display_name} has rejoined and roles restored!")
+    except asyncio.TimeoutError:
+        await ctx.send(f"⚠️ {member.display_name} did not rejoin within 10 minutes.")
+    import random
+
+# 1. !coin – flip a coin
 @bot.command(name="coin")
 async def coin(ctx):
     await ctx.send(f"🪙 {random.choice(['Heads', 'Tails'])}!")
 
-# 3. !rps – rock paper scissors
+# 2. !rps – rock paper scissors
 @bot.command(name="rps")
 async def rps(ctx, choice: str):
     options = ["rock", "paper", "scissors"]
@@ -548,13 +463,13 @@ async def rps(ctx, choice: str):
         result = "You lose!"
     await ctx.send(f"You: **{user_choice}**, Bot: **{bot_choice}** → {result}")
 
-# 4. !8ball – random answer
+# 3. !8ball – random answer
 @bot.command(name="8ball")
 async def eight_ball(ctx, *, question):
     answers = ["Yes", "No", "Maybe", "Definitely", "Ask later"]
     await ctx.send(f"🎱 {random.choice(answers)}")
 
-# 5. !choose – pick one option
+# 4. !choose – pick one option
 @bot.command(name="choose")
 async def choose(ctx, *, options):
     opts = [o.strip() for o in options.split(",") if o.strip()]
@@ -563,18 +478,18 @@ async def choose(ctx, *, options):
         return
     await ctx.send(f"✅ I choose: {random.choice(opts)}")
 
-# 6. !roll2d6 – roll two dice
+# 5. !roll2d6 – roll two dice
 @bot.command(name="roll2d6")
 async def roll2d6(ctx):
     rolls = [random.randint(1, 6), random.randint(1, 6)]
     await ctx.send(f"🎲 You rolled: {rolls[0]} and {rolls[1]} (Total: {sum(rolls)})")
 
-# 7. !random_number
+# 6. !random_number – pick a number between start and end
 @bot.command(name="random_number")
 async def random_number(ctx, start: int = 1, end: int = 100):
     await ctx.send(f"🔢 Your random number is: {random.randint(start, end)}")
 
-# 8. !compliment
+# 7. !compliment – give a random compliment
 @bot.command(name="compliment")
 async def compliment(ctx):
     compliments = [
@@ -583,7 +498,7 @@ async def compliment(ctx):
     ]
     await ctx.send(f"💖 {random.choice(compliments)}")
 
-# 9. !joke
+# 8. !joke – tell a joke
 @bot.command(name="joke")
 async def joke(ctx):
     jokes = [
@@ -593,126 +508,147 @@ async def joke(ctx):
     ]
     await ctx.send(f"😂 {random.choice(jokes)}")
 
-# 10. !flip – choose between two options
+# 9. !flip – choose between two options
 @bot.command(name="flip")
 async def flip(ctx, option1: str, option2: str):
     await ctx.send(f"🎲 I choose: {random.choice([option1, option2])}")
 
-# 11. !would_you_rather (AI/Groq)
-@bot.command(name="would_you_rather")
-async def would_you_rather(ctx):
-    question = "Generate a fun 'Would you rather' question about Discord or servers."
-    reply = await ask_groq(question)
-    await ctx.send(f"🤔 {reply}")
-
-# 12. !trivia (AI/Groq)
-@bot.command(name="trivia")
-async def trivia(ctx):
-    question = "Generate a short fun trivia question with one correct answer."
-    reply = await ask_groq(question)
-    await ctx.send(f"❓ {reply}")
-
-# 13. !riddle (AI/Groq)
-@bot.command(name="riddle")
-async def riddle(ctx):
-    question = "Give a short riddle in one sentence."
-    reply = await ask_groq(question)
-    await ctx.send(f"🧩 {reply}")
-
-# 14. !advice (AI/Groq)
-@bot.command(name="advice")
-async def advice(ctx):
-    question = "Give a small piece of fun safe advice for Discord users."
-    reply = await ask_groq(question)
-    await ctx.send(f"💡 {reply}")
-
-# 15. !story (AI/Groq)
-@bot.command(name="story")
-async def story(ctx):
-    question = "Give a one-sentence story prompt for Discord creativity."
-    reply = await ask_groq(question)
-    await ctx.send(f"📖 {reply}")
-
-# 16. !echo
-@bot.command(name="echo")
-async def echo(ctx, *, text):
-    await ctx.send(f"🗣️ {text}")
-
-# 17. !say_hi
-@bot.command(name="say_hi")
-async def say_hi(ctx):
-    await ctx.send(f"👋 Hello {ctx.author.display_name}!")
-
-# 18. !roll_percent
+# 10. !roll_percent – roll a number 1–100
 @bot.command(name="roll_percent")
 async def roll_percent(ctx):
     await ctx.send(f"📊 You got {random.randint(1, 100)}%!")
 
-# 19. !random_color
+# 11. !random_color – pick a color
 @bot.command(name="random_color")
 async def random_color(ctx):
     colors = ["Red", "Blue", "Green", "Yellow", "Purple", "Orange", "Pink"]
     await ctx.send(f"🎨 Random color: {random.choice(colors)}")
 
-# 20. !magic_number
+# 12. !magic_number – pick a number 1–50
 @bot.command(name="magic_number")
 async def magic_number(ctx):
     await ctx.send(f"✨ Your magic number is {random.randint(1, 50)}")
-@bot.command(name="troll")
-async def troll(ctx, member: discord.Member):
-    if not is_owner(ctx):
-        return  # Only owner can use
 
-    # Save the member's current roles (excluding @everyone)
-    old_roles = [role for role in member.roles if role.name != "@everyone"]
+# 13. !echo – repeat a message
+@bot.command(name="echo")
+async def echo(ctx, *, text):
+    await ctx.send(f"🗣️ {text}")
 
-    # Create a temporary invite (valid for 10 minutes, 1 use)
-    invite = await ctx.channel.create_invite(max_age=600, max_uses=1, unique=True)
+# 14. !say_hi – simple greeting
+@bot.command(name="say_hi")
+async def say_hi(ctx):
+    await ctx.send(f"👋 Hello {ctx.author.display_name}!")
 
-    # DM the member
-    try:
-        embed = discord.Embed(
-            title=f"You have been banned from <@907711912375095367> Server: Sab Hub🎄",
-            description=(
-                "Reason: not doing work, never come back here\n\n"
-                "LOL I'm jk! Join back, I'll restore your roles. Don't mess about though.\n"
-                f"Invite link (10 mins): {invite.url}"
-            ),
-            color=discord.Color.blue()
-        )
-        await member.send(embed=embed)
-    except:
-        # fallback if embed fails in DMs
-        await member.send(
-            f"You have been banned from <@907711912375095367> Server: Sab Hub🎄\n"
-            "Reason: not doing work, never come back here\n\n"
-            "LOL I'm jk! Join back, I'll restore your roles. Don't mess about though.\n"
-            f"Invite link (10 mins): {invite.url}"
-        )
+# 15. !roll_dice – roll a single dice with optional sides
+@bot.command(name="roll_dice")
+async def roll_dice(ctx, sides: int = 6):
+    await ctx.send(f"🎲 You rolled a {random.randint(1, sides)}")
+    # 16. !roll_multiple – roll multiple dice with optional sides
+@bot.command(name="roll_multiple")
+async def roll_multiple(ctx, count: int = 2, sides: int = 6):
+    rolls = [random.randint(1, sides) for _ in range(count)]
+    await ctx.send(f"🎲 You rolled: {rolls} (Total: {sum(rolls)})")
 
-    # Kick the member after DM
-    await member.kick(reason="Messing about")
+# 17. !truth – give a random truth question
+@bot.command(name="truth")
+async def truth(ctx):
+    truths = [
+        "What's your biggest fear?",
+        "Have you ever lied to your best friend?",
+        "What's your most embarrassing moment?",
+        "Do you have a secret hobby?"
+    ]
+    await ctx.send(f"🤔 Truth: {random.choice(truths)}")
 
-    # Wait for them to rejoin, then restore roles
-    def check(m):
-        return m.id == member.id and m.guild == ctx.guild
+# 18. !dare – give a random dare
+@bot.command(name="dare")
+async def dare(ctx):
+    dares = [
+        "Do 10 pushups right now!",
+        "Send a funny selfie in this channel.",
+        "Say something nice to the person on your left.",
+        "Imitate your favorite animal for 30 seconds."
+    ]
+    await ctx.send(f"😎 Dare: {random.choice(dares)}")
 
-    try:
-        rejoined = await bot.wait_for('member_join', timeout=600, check=check)
-        if old_roles:
-            await rejoined.add_roles(*old_roles)
-            await ctx.send(f"✅ {member.display_name} has rejoined and roles restored!")
-    except asyncio.TimeoutError:
-        await ctx.send(f"⚠️ {member.display_name} did not rejoin within 10 minutes.")
-        import os
+# 19. !inspire – send a random inspirational quote
+@bot.command(name="inspire")
+async def inspire(ctx):
+    quotes = [
+        "Believe you can and you're halfway there.",
+        "The only limit is your mind.",
+        "Dream big. Work hard. Stay humble.",
+        "Every day is a second chance."
+    ]
+    await ctx.send(f"💡 {random.choice(quotes)}")
 
-if __name__ == "__main__":
-    DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-    if not DISCORD_BOT_TOKEN:
-        raise ValueError("DISCORD_BOT_TOKEN environment variable not set.")
-    
-    try:
-        print("Starting bot...")
-        bot.run(DISCORD_BOT_TOKEN)
-    except Exception as e:
-        print(f"Error running bot: {e}")
+# 20. !fact – random fun fact
+@bot.command(name="fact")
+async def fact(ctx):
+    facts = [
+        "Bananas are berries, but strawberries are not.",
+        "Honey never spoils.",
+        "Octopuses have three hearts.",
+        "Sharks existed before trees."
+    ]
+    await ctx.send(f"🧠 Fun fact: {random.choice(facts)}")
+
+# 21. !number_guess – simple guess a number game
+@bot.command(name="number_guess")
+async def number_guess(ctx, guess: int):
+    answer = random.randint(1, 10)
+    if guess == answer:
+        await ctx.send(f"🎉 Correct! The number was {answer}.")
+    else:
+        await ctx.send(f"❌ Wrong! The number was {answer}.")
+
+# 22. !reverse – reverse a message
+@bot.command(name="reverse")
+async def reverse(ctx, *, text):
+    await ctx.send(f"🔄 {text[::-1]}")
+
+# 23. !shout – make text uppercase
+@bot.command(name="shout")
+async def shout(ctx, *, text):
+    await ctx.send(f"📢 {text.upper()}")
+
+# 24. !whisper – make text lowercase
+@bot.command(name="whisper")
+async def whisper(ctx, *, text):
+    await ctx.send(f"🤫 {text.lower()}")
+
+# 25. !random_emote – pick a random server emoji
+@bot.command(name="random_emote")
+async def random_emote(ctx):
+    if ctx.guild.emojis:
+        await ctx.send(f"🎭 {random.choice(ctx.guild.emojis)}")
+    else:
+        await ctx.send("⚠️ No custom emojis on this server.")
+
+# 26. !roll_range – roll a number within a custom range
+@bot.command(name="roll_range")
+async def roll_range(ctx, start: int, end: int):
+    await ctx.send(f"🎲 Rolled: {random.randint(start, end)}")
+
+# 27. !flip_coin_multiple – flip coin multiple times
+@bot.command(name="flip_coin_multiple")
+async def flip_coin_multiple(ctx, times: int = 3):
+    results = [random.choice(["Heads", "Tails"]) for _ in range(times)]
+    await ctx.send(f"🪙 Results: {', '.join(results)}")
+
+# 28. !roll_1d20 – roll a d20 (for RPGs)
+@bot.command(name="roll_1d20")
+async def roll_1d20(ctx):
+    await ctx.send(f"🎲 Rolled a d20: {random.randint(1, 20)}")
+
+# 29. !roll_3d6 – roll three 6-sided dice
+@bot.command(name="roll_3d6")
+async def roll_3d6(ctx):
+    rolls = [random.randint(1, 6) for _ in range(3)]
+    await ctx.send(f"🎲 Rolled: {rolls} (Total: {sum(rolls)})")
+
+# 30. !random_pet – pick a random animal
+@bot.command(name="random_pet")
+async def random_pet(ctx):
+    pets = ["Dog 🐶", "Cat 🐱", "Rabbit 🐰", "Hamster 🐹", "Parrot 🦜", "Turtle 🐢"]
+    await ctx.send(f"🐾 Random pet: {random.choice(pets)}")
