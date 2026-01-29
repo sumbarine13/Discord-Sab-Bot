@@ -523,11 +523,6 @@ async def list_roles(ctx):
 # 15 fun/randomized, 5 AI (Groq) games
 # =========================
 
-# 1. !roll – roll a dice
-@bot.command(name="roll")
-async def roll(ctx, sides: int = 6):
-    number = random.randint(1, sides)
-    await ctx.send(f"🎲 You rolled a {number}!")
 
 # 2. !coin – flip a coin
 @bot.command(name="coin")
