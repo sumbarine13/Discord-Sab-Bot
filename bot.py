@@ -939,7 +939,7 @@ async def on_command_error(ctx, error):
 
 # ========== START BOT ==========
 if __name__ == "__main__":
-    token = os.getenv("DISCORD_TOKEN")
+    token = os.getenv("DISCORD_BOT_TOKEN")
     if token:
         print("🚀 Starting bot...")
         print(f"🔒 Owner ID: {OWNER_ID}")
