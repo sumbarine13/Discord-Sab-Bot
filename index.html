@@ -2,112 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Bot Control Panel</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+    <title>Discord Bot Status</title>
     <style>
-        body {
-            background: #0f1220;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-
-        .panel {
-            background: #181c3a;
-            padding: 30px;
-            border-radius: 10px;
-            width: 320px;
-            text-align: center;
-            box-shadow: 0 0 20px rgba(0,0,0,0.4);
-        }
-
-        h1 {
-            margin-bottom: 20px;
-        }
-
-        input {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 15px;
-            border-radius: 6px;
-            border: none;
-            outline: none;
-        }
-
-        button {
-            width: 100%;
-            padding: 10px;
-            margin-top: 10px;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .on {
-            background: #2ecc71;
-            color: #000;
-        }
-
-        .off {
-            background: #e74c3c;
-            color: #fff;
-        }
-
-        .status {
-            margin-top: 15px;
-            font-size: 14px;
-        }
+        body { font-family: Arial, sans-serif; background: #1e1e2f; color: #fff; text-align: center; padding: 50px; }
+        h1 { color: #4da6ff; }
+        .status { font-size: 1.5em; margin-top: 20px; }
     </style>
 </head>
 <body>
-
-<div class="panel">
-    <h1>Bot Control</h1>
-
-    <input type="password" id="password" placeholder="Enter password">
-
-    <button class="on" onclick="controlBot('start')">Turn ON Bot</button>
-    <button class="off" onclick="controlBot('stop')">Turn OFF Bot</button>
-
-    <div class="status" id="status"></div>
-</div>
-
-<script>
-    async function controlBot(action) {
-        const password = document.getElementById("password").value;
-        const status = document.getElementById("status");
-
-        if (!password) {
-            status.textContent = "❌ Please enter the password";
-            status.style.color = "#ff6b6b";
-            return;
-        }
-
-        try {
-            const res = await fetch(`/${action}?password=${encodeURIComponent(password)}`, {
-                method: "POST"
-            });
-
-            const data = await res.json();
-
-            if (res.ok && data.status === "success") {
-                status.textContent = `✅ Bot ${action === "start" ? "started" : "stopped"}`;
-                status.style.color = "#2ecc71";
-            } else {
-                status.textContent = `⚠️ ${data.message}`;
-                status.style.color = "#f1c40f";
-            }
-        } catch (err) {
-            status.textContent = "❌ Backend not running";
-            status.style.color = "#ff6b6b";
-        }
-    }
-</script>
-
+    <h1>Discord Bot Status</h1>
+    <p class="status">Bot is online ✅</p>
 </body>
 </html>
