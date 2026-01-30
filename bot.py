@@ -194,6 +194,120 @@ async def rps(ctx, choice: str):
 
 # (Add all other fun commands here in proper multi-line format)
 # Examples:
+# =========================
+# MORE FUN COMMANDS
+# =========================
+
+@bot.command()
+async def hug(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    hugs = [
+        "🤗 Here's a big warm hug!",
+        "💖 Hug incoming!",
+        "🌟 Sending positive vibes your way!"
+    ]
+    await ctx.send(f"{member.mention} {random.choice(hugs)}")
+
+@bot.command()
+async def pat(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    pats = [
+        "👏 Pat pat!",
+        "🤲 Gentle pat!",
+        "💛 A little pat for you!"
+    ]
+    await ctx.send(f"{member.mention} {random.choice(pats)}")
+
+@bot.command()
+async def slap(ctx, member: discord.Member):
+    slaps = [
+        "🖐️ *slaps lightly*",
+        "😜 *slap with style!*",
+        "💥 Pow! Gotcha!"
+    ]
+    await ctx.send(f"{member.mention} {random.choice(slaps)}")
+
+@bot.command()
+async def kiss(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    kisses = [
+        "💋 A sweet kiss!",
+        "😘 Sending love your way!",
+        "🌹 A gentle peck!"
+    ]
+    await ctx.send(f"{member.mention} {random.choice(kisses)}")
+
+@bot.command()
+async def hugme(ctx):
+    hugs = [
+        "🤗 A huge hug just for you!",
+        "💖 Sending love and hugs!",
+        "🌟 Feel the hug vibes!"
+    ]
+    await ctx.send(f"{ctx.author.mention} {random.choice(hugs)}")
+
+@bot.command()
+async def dance(ctx, member: discord.Member = None):
+    member = member or ctx.author
+    dances = [
+        "💃 Let's dance! Spin around!",
+        "🕺 Groove time!",
+        "🎶 Busting a move!"
+    ]
+    await ctx.send(f"{member.mention} {random.choice(dances)}")
+
+@bot.command()
+async def roast(ctx, member: discord.Member):
+    roasts = [
+        "😏 I’d agree with you, but then we’d both be wrong.",
+        "😂 You bring everyone so much joy… when you leave the room.",
+        "🙃 You have something on your chin… no, the third one down."
+    ]
+    await ctx.send(f"{member.mention} {random.choice(roasts)}")
+
+@bot.command()
+async def flip(ctx):
+    coins = ["Heads", "Tails"]
+    await ctx.send(f"🪙 Coin flipped: **{random.choice(coins)}**")
+
+@bot.command()
+async def eightball(ctx, *, question: str):
+    responses = [
+        "🎱 Yes!",
+        "🎱 No!",
+        "🎱 Maybe.",
+        "🎱 Definitely!",
+        "🎱 Ask again later."
+    ]
+    await ctx.send(f"Question: {question}\nAnswer: {random.choice(responses)}")
+
+@bot.command()
+async def complimentme(ctx):
+    compliments = [
+        "🌟 You're incredible!",
+        "💖 You're unstoppable!",
+        "✨ You light up the room!"
+    ]
+    await ctx.send(f"{ctx.author.mention} {random.choice(compliments)}")
+
+@bot.command()
+async def meme(ctx):
+    memes = [
+        "😂 Me trying to code all night...",
+        "🤣 When the teacher says 'this won't be on the test'",
+        "😎 That feeling when you finally debug!"
+    ]
+    await ctx.send(random.choice(memes))
+
+@bot.command()
+async def fortune(ctx):
+    fortunes = [
+        "🔮 You will have a great day today!",
+        "🔮 Someone is thinking of you.",
+        "🔮 Adventure is on your horizon.",
+        "🔮 Expect the unexpected!"
+    ]
+    await ctx.send(f"{ctx.author.mention} {random.choice(fortunes)}")
 @bot.command()
 async def joke(ctx):
     jokes = [
