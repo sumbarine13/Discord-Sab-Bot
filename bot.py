@@ -669,7 +669,7 @@ if __name__ == "__main__":
             status=discord.Status.online
         )
 
-    bot.loop.create_task(set_default_status())
+
 
     # Run the bot
     TOKEN = os.getenv("DISCORD_BOT_TOKEN") or "YOUR_BOT_TOKEN"
