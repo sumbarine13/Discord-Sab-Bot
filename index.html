@@ -3,25 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Bot Running</title>
+    <title>Discord Bot Dashboard</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
-            background-color: #f0f0f0;
-            color: #333;
-        }
-        h1 {
-            color: #5865F2;
-        }
-        p {
-            font-size: 1.2em;
-        }
+        body { font-family: Arial, sans-serif; background-color: #121212; color: #f5f5f5; text-align: center; padding: 50px; }
+        h1 { color: #7289da; }
+        button { background-color: #7289da; border: none; color: white; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #5b6eae; }
+        .status { margin-top: 20px; font-weight: bold; }
     </style>
 </head>
 <body>
-    <h1>🤖 Discord Bot is Online!</h1>
-    <p>Your bot is running successfully. Check your Discord server to interact with it.</p>
+    <h1>Discord Bot Dashboard</h1>
+    <p>Manage your bot and see status here.</p>
+
+    <div>
+        <button onclick="alert('Pinged bot!')">Ping Bot</button>
+        <button onclick="alert('Joke command sent!')">Send Joke</button>
+        <button onclick="alert('Troll Kick executed!')">Troll Kick</button>
+        <button onclick="alert('Fun command executed!')">Fun Command</button>
+    </div>
+
+    <div class="status" id="status">Status: Online ✅</div>
+
+    <script>
+        // Optional: fake bot status update
+        setInterval(() => {
+            const statuses = ["Online ✅", "Idle 🌙", "Do Not Disturb ⛔", "Offline ❌"];
+            document.getElementById("status").innerText = "Status: " + statuses[Math.floor(Math.random() * statuses.length)];
+        }, 5000);
+    </script>
 </body>
 </html>
