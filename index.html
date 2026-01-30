@@ -3,34 +3,1327 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Bot Dashboard</title>
+    <title>Discord Bot - Moderation Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { font-family: Arial, sans-serif; background-color: #121212; color: #f5f5f5; text-align: center; padding: 50px; }
-        h1 { color: #7289da; }
-        button { background-color: #7289da; border: none; color: white; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
-        button:hover { background-color: #5b6eae; }
-        .status { margin-top: 20px; font-weight: bold; }
+        :root {
+            --primary: #5865f2;
+            --secondary: #404eed;
+            --dark: #2c2f33;
+            --darker: #23272a;
+            --light: #99aab5;
+            --lighter: #ffffff;
+            --danger: #ed4245;
+            --warning: #faa61a;
+            --success: #57f287;
+            --info: #3498db;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 100%);
+            color: var(--lighter);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            background: var(--primary);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .logo-text h1 {
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text p {
+            color: var(--light);
+            font-size: 14px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Auth Screen */
+        .auth-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 70vh;
+        }
+
+        .auth-box {
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .auth-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .auth-header i {
+            font-size: 48px;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .auth-header h2 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .auth-header p {
+            color: var(--light);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: var(--lighter);
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(88, 101, 242, 0.2);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+        }
+
+        .btn-primary:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--lighter);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-success {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-info {
+            background: var(--info);
+            color: white;
+        }
+
+        .error-message {
+            color: var(--danger);
+            background: rgba(237, 66, 69, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+            text-align: center;
+        }
+
+        /* Main Dashboard (hidden by default) */
+        .dashboard {
+            display: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary);
+        }
+
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            background: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-content h3 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .stat-content p {
+            color: var(--light);
+            font-size: 14px;
+        }
+
+        /* Command Categories */
+        .category-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            overflow-x: auto;
+            padding-bottom: 10px;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border: none;
+            border-radius: 8px;
+            color: var(--lighter);
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Command Grid */
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .command-card {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s;
+        }
+
+        .command-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .command-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .command-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            background: rgba(88, 101, 242, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+        }
+
+        .command-title h4 {
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .command-title span {
+            color: var(--light);
+            font-size: 14px;
+        }
+
+        .command-description {
+            color: var(--light);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .command-form .form-group {
+            margin-bottom: 15px;
+        }
+
+        .command-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .command-prefix {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        /* Logs Section */
+        .logs-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 25px;
+            margin-top: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logs-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .log-item {
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            border-left: 4px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .log-time {
+            color: var(--light);
+            font-size: 12px;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: var(--dark);
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .modal-header h3 {
+            font-size: 24px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--light);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+            
+            .commands-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .auth-box {
+                padding: 25px;
+            }
+            
+            .tab-btn {
+                padding: 10px 15px;
+                font-size: 14px;
+            }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--primary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary);
+        }
     </style>
 </head>
 <body>
-    <h1>Discord Bot Dashboard</h1>
-    <p>Manage your bot and see status here.</p>
+    <div class="container">
+        <!-- Authentication Screen -->
+        <div id="authScreen" class="auth-container">
+            <div class="auth-box">
+                <div class="auth-header">
+                    <i class="fas fa-robot"></i>
+                    <h2>Bot Moderation Dashboard</h2>
+                    <p>Enter password to access moderation controls</p>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password"><i class="fas fa-lock"></i> Dashboard Password</label>
+                    <input type="password" id="password" class="form-control" placeholder="Enter access password">
+                </div>
+                
+                <button class="btn btn-primary" onclick="login()">
+                    <i class="fas fa-sign-in-alt"></i> Access Dashboard
+                </button>
+                
+                <div id="errorMessage" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i> Invalid password. Please try again.
+                </div>
+                
+                <div style="text-align: center; margin-top: 20px; color: var(--light); font-size: 14px;">
+                    <i class="fas fa-info-circle"></i> Contact administrator if you forgot the password
+                </div>
+            </div>
+        </div>
 
-    <div>
-        <button onclick="alert('Pinged bot!')">Ping Bot</button>
-        <button onclick="alert('Joke command sent!')">Send Joke</button>
-        <button onclick="alert('Troll Kick executed!')">Troll Kick</button>
-        <button onclick="alert('Fun command executed!')">Fun Command</button>
+        <!-- Main Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <!-- Header -->
+            <div class="header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>Discord Bot Dashboard</h1>
+                        <p>Moderation Control Panel</p>
+                    </div>
+                </div>
+                
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Bot Online</span>
+                    <button class="btn btn-secondary" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="totalCommands">24</h3>
+                        <p>Moderation Commands</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--success);">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="onlineUsers">0</h3>
+                        <p>Online Users</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--info);">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="serverCount">1</h3>
+                        <p>Active Servers</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: var(--warning);">
+                        <i class="fas fa-history"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3 id="actionsToday">0</h3>
+                        <p>Actions Today</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Command Categories -->
+            <div class="category-tabs">
+                <button class="tab-btn active" onclick="filterCommands('all')">
+                    <i class="fas fa-th-large"></i> All Commands
+                </button>
+                <button class="tab-btn" onclick="filterCommands('user')">
+                    <i class="fas fa-users"></i> User Management
+                </button>
+                <button class="tab-btn" onclick="filterCommands('channel')">
+                    <i class="fas fa-hashtag"></i> Channel Control
+                </button>
+                <button class="tab-btn" onclick="filterCommands('server')">
+                    <i class="fas fa-server"></i> Server Management
+                </button>
+                <button class="tab-btn" onclick="filterCommands('info')">
+                    <i class="fas fa-info-circle"></i> Information
+                </button>
+            </div>
+
+            <!-- Commands Grid -->
+            <div id="commandsContainer" class="commands-grid">
+                <!-- Commands will be dynamically loaded here -->
+            </div>
+
+            <!-- Action Logs -->
+            <div class="logs-container">
+                <div class="logs-header">
+                    <h3><i class="fas fa-clipboard-list"></i> Recent Actions</h3>
+                    <button class="btn btn-secondary" onclick="clearLogs()">
+                        <i class="fas fa-trash"></i> Clear Logs
+                    </button>
+                </div>
+                
+                <div id="logsList" class="logs-list">
+                    <!-- Logs will appear here -->
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="status" id="status">Status: Online ✅</div>
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Confirm Action</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <p id="modalMessage">Are you sure you want to perform this action?</p>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button class="btn btn-danger" style="flex: 1;" onclick="confirmAction(true)">
+                    <i class="fas fa-check"></i> Confirm
+                </button>
+                <button class="btn btn-secondary" style="flex: 1;" onclick="confirmAction(false)">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
-        // Optional: fake bot status update
-        setInterval(() => {
-            const statuses = ["Online ✅", "Idle 🌙", "Do Not Disturb ⛔", "Offline ❌"];
-            document.getElementById("status").innerText = "Status: " + statuses[Math.floor(Math.random() * statuses.length)];
-        }, 5000);
+        // Password Configuration
+        const CORRECT_PASSWORD = "Sumbarine13";
+        let currentAction = null;
+        let actionData = null;
+
+        // Sample Commands Data
+        const commands = [
+            {
+                id: 1,
+                category: "user",
+                icon: "fa-ban",
+                title: "Ban User",
+                description: "Permanently ban a user from the server",
+                usage: "!ban @user [reason]",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "reason", type: "text", placeholder: "Reason for ban", required: false }
+                ],
+                color: "danger"
+            },
+            {
+                id: 2,
+                category: "user",
+                icon: "fa-user-times",
+                title: "Kick User",
+                description: "Remove a user from the server",
+                usage: "!kick @user [reason]",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "reason", type: "text", placeholder: "Reason for kick", required: false }
+                ],
+                color: "warning"
+            },
+            {
+                id: 3,
+                category: "user",
+                icon: "fa-volume-mute",
+                title: "Mute User",
+                description: "Temporarily mute a user",
+                usage: "!mute @user [duration] [reason]",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "duration", type: "text", placeholder: "e.g., 10m, 1h, 1d", required: false },
+                    { name: "reason", type: "text", placeholder: "Reason for mute", required: false }
+                ],
+                color: "warning"
+            },
+            {
+                id: 4,
+                category: "user",
+                icon: "fa-microphone",
+                title: "Unmute User",
+                description: "Remove mute from a user",
+                usage: "!unmute @user",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true }
+                ],
+                color: "success"
+            },
+            {
+                id: 5,
+                category: "user",
+                icon: "fa-clock",
+                title: "Temp Ban",
+                description: "Temporarily ban a user",
+                usage: "!tempban @user [duration] [reason]",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "duration", type: "text", placeholder: "e.g., 10m, 1h, 1d", required: true },
+                    { name: "reason", type: "text", placeholder: "Reason for ban", required: false }
+                ],
+                color: "danger"
+            },
+            {
+                id: 6,
+                category: "channel",
+                icon: "fa-lock",
+                title: "Lock Channel",
+                description: "Prevent users from sending messages",
+                usage: "!lock [channel]",
+                parameters: [
+                    { name: "channel", type: "text", placeholder: "#channel (optional)", required: false }
+                ],
+                color: "warning"
+            },
+            {
+                id: 7,
+                category: "channel",
+                icon: "fa-unlock",
+                title: "Unlock Channel",
+                description: "Allow users to send messages",
+                usage: "!unlock [channel]",
+                parameters: [
+                    { name: "channel", type: "text", placeholder: "#channel (optional)", required: false }
+                ],
+                color: "success"
+            },
+            {
+                id: 8,
+                category: "channel",
+                icon: "fa-exclamation-triangle",
+                title: "Panic Lock",
+                description: "Lock all channels at once",
+                usage: "!panic_lock",
+                parameters: [],
+                color: "danger"
+            },
+            {
+                id: 9,
+                category: "channel",
+                icon: "fa-check-circle",
+                title: "Panic Unlock",
+                description: "Unlock all channels at once",
+                usage: "!panic_unlock",
+                parameters: [],
+                color: "success"
+            },
+            {
+                id: 10,
+                category: "channel",
+                icon: "fa-broom",
+                title: "Clear Messages",
+                description: "Delete multiple messages",
+                usage: "!clear [amount]",
+                parameters: [
+                    { name: "amount", type: "number", placeholder: "Number of messages (max 100)", required: false }
+                ],
+                color: "info"
+            },
+            {
+                id: 11,
+                category: "channel",
+                icon: "fa-hourglass-half",
+                title: "Slow Mode",
+                description: "Set slowmode for channel",
+                usage: "!slowmode [seconds]",
+                parameters: [
+                    { name: "seconds", type: "number", placeholder: "Seconds between messages", required: false }
+                ],
+                color: "info"
+            },
+            {
+                id: 12,
+                category: "server",
+                icon: "fa-user-plus",
+                title: "Add Role",
+                description: "Add a role to a user",
+                usage: "!addrole @user @role",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "role", type: "text", placeholder: "Role name or ID", required: true }
+                ],
+                color: "success"
+            },
+            {
+                id: 13,
+                category: "server",
+                icon: "fa-user-minus",
+                title: "Remove Role",
+                description: "Remove a role from a user",
+                usage: "!removerole @user @role",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "role", type: "text", placeholder: "Role name or ID", required: true }
+                ],
+                color: "danger"
+            },
+            {
+                id: 14,
+                category: "server",
+                icon: "fa-plus-circle",
+                title: "Create Role",
+                description: "Create a new role",
+                usage: "!createrole [name]",
+                parameters: [
+                    { name: "name", type: "text", placeholder: "Role name", required: true }
+                ],
+                color: "success"
+            },
+            {
+                id: 15,
+                category: "server",
+                icon: "fa-trash-alt",
+                title: "Delete Role",
+                description: "Delete a role",
+                usage: "!deleterole @role",
+                parameters: [
+                    { name: "role", type: "text", placeholder: "Role name or ID", required: true }
+                ],
+                color: "danger"
+            },
+            {
+                id: 16,
+                category: "server",
+                icon: "fa-plus-square",
+                title: "Create Channel",
+                description: "Create a new text channel",
+                usage: "!createchannel [name]",
+                parameters: [
+                    { name: "name", type: "text", placeholder: "Channel name", required: true }
+                ],
+                color: "success"
+            },
+            {
+                id: 17,
+                category: "server",
+                icon: "fa-minus-square",
+                title: "Delete Channel",
+                description: "Delete a text channel",
+                usage: "!deletechannel #channel",
+                parameters: [
+                    { name: "channel", type: "text", placeholder: "#channel", required: true }
+                ],
+                color: "danger"
+            },
+            {
+                id: 18,
+                category: "server",
+                icon: "fa-lock",
+                title: "Server Lock",
+                description: "Lock all server channels",
+                usage: "!serverlock",
+                parameters: [],
+                color: "danger"
+            },
+            {
+                id: 19,
+                category: "server",
+                icon: "fa-unlock",
+                title: "Server Unlock",
+                description: "Unlock all server channels",
+                usage: "!serverunlock",
+                parameters: [],
+                color: "success"
+            },
+            {
+                id: 20,
+                category: "info",
+                icon: "fa-server",
+                title: "Server Info",
+                description: "View server information",
+                usage: "!serverinfo",
+                parameters: [],
+                color: "info"
+            },
+            {
+                id: 21,
+                category: "info",
+                icon: "fa-user",
+                title: "User Info",
+                description: "View user information",
+                usage: "!userinfo @user",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: false }
+                ],
+                color: "info"
+            },
+            {
+                id: 22,
+                category: "info",
+                icon: "fa-user-shield",
+                title: "Mod Notes",
+                description: "Add note to user",
+                usage: "!modnotes @user [note]",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true },
+                    { name: "note", type: "text", placeholder: "Note content", required: true }
+                ],
+                color: "info"
+            },
+            {
+                id: 23,
+                category: "info",
+                icon: "fa-eye",
+                title: "View Notes",
+                description: "View mod notes for user",
+                usage: "!viewnotes @user",
+                parameters: [
+                    { name: "user", type: "text", placeholder: "User ID or @mention", required: true }
+                ],
+                color: "info"
+            },
+            {
+                id: 24,
+                category: "info",
+                icon: "fa-list-alt",
+                title: "Audit Log",
+                description: "View server audit log",
+                usage: "!auditlog [limit]",
+                parameters: [
+                    { name: "limit", type: "number", placeholder: "Number of entries (default 10)", required: false }
+                ],
+                color: "info"
+            }
+        ];
+
+        // Login Function
+        function login() {
+            const password = document.getElementById('password').value;
+            const errorElement = document.getElementById('errorMessage');
+            
+            if (password === CORRECT_PASSWORD) {
+                // Store session
+                localStorage.setItem('bot_dashboard_auth', 'true');
+                localStorage.setItem('bot_dashboard_login_time', Date.now());
+                
+                // Show dashboard
+                document.getElementById('authScreen').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+                
+                // Load commands
+                loadCommands('all');
+                
+                // Update stats
+                updateStats();
+                
+                // Add login log
+                addLog('User logged into dashboard');
+            } else {
+                errorElement.style.display = 'block';
+                setTimeout(() => {
+                    errorElement.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Logout Function
+        function logout() {
+            localStorage.removeItem('bot_dashboard_auth');
+            localStorage.removeItem('bot_dashboard_login_time');
+            document.getElementById('dashboard').style.display = 'none';
+            document.getElementById('authScreen').style.display = 'flex';
+            document.getElementById('password').value = '';
+        }
+
+        // Check if already logged in
+        function checkAuth() {
+            const auth = localStorage.getItem('bot_dashboard_auth');
+            const loginTime = localStorage.getItem('bot_dashboard_login_time');
+            
+            if (auth && loginTime) {
+                const timeDiff = Date.now() - parseInt(loginTime);
+                const hoursDiff = timeDiff / (1000 * 60 * 60);
+                
+                // Auto logout after 8 hours
+                if (hoursDiff < 8) {
+                    document.getElementById('authScreen').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    loadCommands('all');
+                    updateStats();
+                    addLog('User session resumed');
+                    return true;
+                } else {
+                    logout();
+                }
+            }
+            return false;
+        }
+
+        // Filter Commands
+        function filterCommands(category) {
+            // Update active tab
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Load commands for category
+            loadCommands(category);
+        }
+
+        // Load Commands
+        function loadCommands(category) {
+            const container = document.getElementById('commandsContainer');
+            container.innerHTML = '';
+            
+            let filteredCommands = commands;
+            if (category !== 'all') {
+                filteredCommands = commands.filter(cmd => cmd.category === category);
+            }
+            
+            document.getElementById('totalCommands').textContent = filteredCommands.length;
+            
+            filteredCommands.forEach(cmd => {
+                const card = document.createElement('div');
+                card.className = 'command-card';
+                card.dataset.category = cmd.category;
+                
+                let parametersHTML = '';
+                cmd.parameters.forEach(param => {
+                    parametersHTML += `
+                        <div class="form-group">
+                            <label>${param.name} ${param.required ? '<span style="color: var(--danger)">*</span>' : ''}</label>
+                            <input type="${param.type}" 
+                                   class="form-control param-input" 
+                                   data-param="${param.name}"
+                                   placeholder="${param.placeholder}"
+                                   ${param.required ? 'required' : ''}>
+                        </div>
+                    `;
+                });
+                
+                card.innerHTML = `
+                    <div class="command-header">
+                        <div class="command-icon" style="background: rgba(var(--${cmd.color}-rgb), 0.2); color: var(--${cmd.color});">
+                            <i class="fas ${cmd.icon}"></i>
+                        </div>
+                        <div class="command-title">
+                            <h4>${cmd.title}</h4>
+                            <span>Category: ${cmd.category}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="command-description">
+                        ${cmd.description}
+                    </div>
+                    
+                    ${parametersHTML ? `<div class="command-form">${parametersHTML}</div>` : ''}
+                    
+                    <div class="command-footer">
+                        <div class="command-prefix">
+                            ${cmd.usage}
+                        </div>
+                        <button class="btn btn-${cmd.color}" onclick="executeCommand(${cmd.id})">
+                            <i class="fas fa-play"></i> Execute
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // Execute Command
+        function executeCommand(commandId) {
+            const command = commands.find(cmd => cmd.id === commandId);
+            const card = document.querySelector(`[data-category="${command.category}"]`);
+            
+            // Get parameter values
+            const params = {};
+            const inputs = card.querySelectorAll('.param-input');
+            let valid = true;
+            
+            inputs.forEach(input => {
+                const paramName = input.dataset.param;
+                const value = input.value.trim();
+                
+                // Check required fields
+                if (input.required && !value) {
+                    input.style.borderColor = 'var(--danger)';
+                    valid = false;
+                } else {
+                    input.style.borderColor = '';
+                    params[paramName] = value;
+                }
+            });
+            
+            if (!valid) {
+                addLog(`Failed to execute ${command.title}: Missing required parameters`, 'error');
+                return;
+            }
+            
+            // Build command string
+            let commandString = command.usage.split(' ')[0]; // Get the command part
+            Object.values(params).forEach(value => {
+                if (value) commandString += ` ${value}`;
+            });
+            
+            // Show confirmation modal
+            currentAction = command.title;
+            actionData = {
+                command: commandString,
+                params: params,
+                commandObj: command
+            };
+            
+            document.getElementById('modalMessage').textContent = 
+                `Are you sure you want to execute: ${commandString}?`;
+            document.getElementById('confirmationModal').style.display = 'flex';
+        }
+
+        // Confirm Action
+        function confirmAction(confirmed) {
+            closeModal();
+            
+            if (confirmed && currentAction && actionData) {
+                // Here you would normally send the command to your bot
+                // For now, we'll just simulate it
+                
+                addLog(`Executed: ${actionData.command}`, 'success');
+                
+                // Clear form inputs
+                const card = document.querySelector(`[data-category="${actionData.commandObj.category}"]`);
+                card.querySelectorAll('.param-input').forEach(input => {
+                    input.value = '';
+                });
+                
+                // Update stats
+                updateStats();
+                
+                // Show success message
+                showNotification(`Command executed: ${actionData.command}`, 'success');
+            }
+            
+            currentAction = null;
+            actionData = null;
+        }
+
+        // Close Modal
+        function closeModal() {
+            document.getElementById('confirmationModal').style.display = 'none';
+        }
+
+        // Add Log
+        function addLog(message, type = 'info') {
+            const logsList = document.getElementById('logsList');
+            const logItem = document.createElement('div');
+            logItem.className = 'log-item';
+            
+            // Set border color based on type
+            let borderColor = 'var(--primary)';
+            let icon = 'fa-info-circle';
+            
+            if (type === 'error') {
+                borderColor = 'var(--danger)';
+                icon = 'fa-exclamation-circle';
+            } else if (type === 'success') {
+                borderColor = 'var(--success)';
+                icon = 'fa-check-circle';
+            } else if (type === 'warning') {
+                borderColor = 'var(--warning)';
+                icon = 'fa-exclamation-triangle';
+            }
+            
+            logItem.style.borderLeftColor = borderColor;
+            
+            const time = new Date().toLocaleTimeString();
+            logItem.innerHTML = `
+                <div>
+                    <i class="fas ${icon}"></i> ${message}
+                </div>
+                <div class="log-time">${time}</div>
+            `;
+            
+            logsList.insertBefore(logItem, logsList.firstChild);
+            
+            // Limit logs to 20 items
+            if (logsList.children.length > 20) {
+                logsList.removeChild(logsList.lastChild);
+            }
+            
+            // Update actions counter
+            updateActionsCounter();
+        }
+
+        // Clear Logs
+        function clearLogs() {
+            document.getElementById('logsList').innerHTML = '';
+            addLog('Logs cleared', 'info');
+        }
+
+        // Update Stats
+        function updateStats() {
+            // Simulate updating stats
+            const actionsElement = document.getElementById('actionsToday');
+            let actions = parseInt(actionsElement.textContent) || 0;
+            actionsElement.textContent = actions + 1;
+            
+            // Simulate user count
+            document.getElementById('onlineUsers').textContent = 
+                Math.floor(Math.random() * 500) + 100;
+        }
+
+        // Update Actions Counter
+        function updateActionsCounter() {
+            const actionsElement = document.getElementById('actionsToday');
+            let actions = parseInt(actionsElement.textContent) || 0;
+            actionsElement.textContent = actions + 1;
+        }
+
+        // Show Notification
+        function showNotification(message, type = 'info') {
+            // Create notification element
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.innerHTML = `
+                <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i>
+                ${message}
+            `;
+            
+            // Style the notification
+            notification.style.position = 'fixed';
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.padding = '15px 20px';
+            notification.style.background = type === 'success' ? 'var(--success)' : 
+                                          type === 'error' ? 'var(--danger)' : 'var(--info)';
+            notification.style.color = 'white';
+            notification.style.borderRadius = '8px';
+            notification.style.boxShadow = '0 5px 15px rgba(0,0,0,0.3)';
+            notification.style.zIndex = '1001';
+            notification.style.display = 'flex';
+            notification.style.alignItems = 'center';
+            notification.style.gap = '10px';
+            notification.style.animation = 'slideIn 0.3s ease';
+            
+            document.body.appendChild(notification);
+            
+            // Remove after 3 seconds
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, 3000);
+        }
+
+        // Add CSS for animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Initialize on load
+        window.onload = function() {
+            checkAuth();
+            
+            // Add some initial logs
+            setTimeout(() => {
+                addLog('Dashboard initialized successfully', 'success');
+                addLog('Bot connection established', 'info');
+                addLog('All moderation commands loaded', 'info');
+            }, 1000);
+        };
+
+        // Handle Enter key in password field
+        document.getElementById('password').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
     </script>
 </body>
 </html>
