@@ -968,7 +968,36 @@ async def on_command_error(ctx, error):
     else:
         logger.error(f"Error: {error}")
         await ctx.send("❌ An error occurred")
+# Add to your Discord bot code:
 
+import aiohttp
+import asyncio
+
+async def update_dashboard_stats():
+    """Update dashboard statistics"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            data = {
+                "guilds": len(bot.guilds),
+                "users": sum(g.member_count for g in bot.guilds)
+            }
+            async with session.post('http://localhost:5000/api/update_stats', json=data):
+                pass
+    except:
+        pass  # Dashboard might not be running
+
+@tasks.loop(minutes=5)
+async def update_dashboard_task():
+    """Periodically update dashboard"""
+    await update_dashboard_stats()
+
+# Add to on_ready():
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user}")
+    print(f"📊 Serving {len(bot.guilds)} guilds")
+    update_dashboard_task.start()
+    await update_dashboard_stats()
 # =========================
 # START BOT
 # =========================
