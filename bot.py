@@ -343,17 +343,6 @@ async def bot_info(ctx):
     embed.add_field(name="Servers", value=len(bot.guilds))
     await ctx.send(embed=embed)
 
-# 30. Emoji list
-@bot.command(name="emoji_list")
-async def emoji_list(ctx):
-    emojis = [str(e) for e in ctx.guild.emojis]
-    await ctx.send(f"Emojis: {' '.join(emojis) if emojis else 'None'}")
-
-# 31. Emoji count
-@bot.command(name="emoji_count")
-async def emoji_count(ctx):
-    count = len(ctx.guild.emojis)
-    await ctx.send(f"Total emojis: {count}")
 
 # 32. Maintenance mode toggle
 @bot.command(name="maintenance")
