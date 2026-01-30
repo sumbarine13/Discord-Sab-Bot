@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bot Control Panel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            background: #0f1220;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .panel {
+            background: #181c3a;
+            padding: 30px;
+            border-radius: 10px;
+            width: 320px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0,0,0,0.4);
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 6px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .on {
+            background: #2ecc71;
+            color: #000;
+        }
+
+        .off {
+            background: #e74c3c;
+            color: #fff;
+        }
+
+        .status {
+            margin-top: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="panel">
+    <h1>Bot Control</h1>
+
+    <input type="password" id="password" placeholder="Enter password">
+
+    <button class="on" onclick="controlBot('start')">Turn ON Bot</button>
+    <button class="off" onclick="controlBot('stop')">Turn OFF Bot</button>
+
+    <div class="status" id="status"></div>
+</div>
+
+<script>
+    const PASSWORD = "Sumbarine13";
+
+    async function controlBot(action) {
+        const input = document.getElementById("password").value;
+        const status = document.getElementById("status");
+
+        if (input !== PASSWORD) {
+            status.textContent = "❌ Wrong password";
+            status.style.color = "#ff6b6b";
+            return;
+        }
+
+        try {
+            const res = await fetch(`/${action}`, {
+                method: "POST"
+            });
+
+            if (res.ok) {
+                status.textContent = `✅ Bot ${action === "start" ? "started" : "stopped"}`;
+                status.style.color = "#2ecc71";
+            } else {
+                status.textContent = "⚠️ Server error";
+                status.style.color = "#f1c40f";
+            }
+        } catch (err) {
+            status.textContent = "❌ Backend not running";
+            status.style.color = "#ff6b6b";
+        }
+    }
+</script>
+
+</body>
+</html>
