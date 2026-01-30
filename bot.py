@@ -241,39 +241,9 @@ async def temp_ban(ctx, member: discord.Member, minutes: int = 10):
     await ctx.guild.unban(member)
     await ctx.send(f"✅ {member.display_name} unbanned")
 
-@bot.command(name="add_emoji")
-async def add_emoji(ctx, name: str, url: str):
-    if not is_owner(ctx):
-        return
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                      "AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/120.0.0.0 Safari/537.36"
-    }
 
-    try:
-        async with aiohttp.ClientSession(headers=headers) as session:
-            async with session.get(url) as r:
-                if r.status != 200:
-                    await ctx.send(f"❌ Failed to fetch the image! HTTP Status: {r.status}")
-                    return
-                image_bytes = await r.read()
 
-        emoji = await ctx.guild.create_custom_emoji(name=name, image=image_bytes)
-        await ctx.send(f"✅ Emoji {emoji.name} added successfully!")
-    except discord.HTTPException as e:
-        await ctx.send(f"❌ Discord error: {e}")
-    except Exception as e:
-        await ctx.send(f"❌ Failed to add emoji: {e}")
-
-# 17. Remove emoji
-@bot.command(name="remove_emoji")
-async def remove_emoji(ctx, emoji: discord.Emoji):
-    if not is_owner(ctx):
-        return
-    await emoji.delete()
-    await ctx.send(f"❌ Emoji {emoji.name} removed")
 
 # 18. Server lock
 @bot.command(name="server_lock")
