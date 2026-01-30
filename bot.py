@@ -591,13 +591,6 @@ async def shout(ctx, *, text):
 async def whisper(ctx, *, text):
     await ctx.send(f"🤫 {text.lower()}")
 
-# 25. !random_emote – pick a random server emoji
-@bot.command(name="random_emote")
-async def random_emote(ctx):
-    if ctx.guild.emojis:
-        await ctx.send(f"🎭 {random.choice(ctx.guild.emojis)}")
-    else:
-        await ctx.send("⚠️ No custom emojis on this server.")
 
 # 26. !roll_range – roll a number within a custom range
 @bot.command(name="roll_range")
