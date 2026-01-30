@@ -78,28 +78,28 @@
 </div>
 
 <script>
-    const PASSWORD = "Sumbarine13";
-
     async function controlBot(action) {
-        const input = document.getElementById("password").value;
+        const password = document.getElementById("password").value;
         const status = document.getElementById("status");
 
-        if (input !== PASSWORD) {
-            status.textContent = "❌ Wrong password";
+        if (!password) {
+            status.textContent = "❌ Please enter the password";
             status.style.color = "#ff6b6b";
             return;
         }
 
         try {
-            const res = await fetch(`/${action}`, {
+            const res = await fetch(`/${action}?password=${encodeURIComponent(password)}`, {
                 method: "POST"
             });
 
-            if (res.ok) {
+            const data = await res.json();
+
+            if (res.ok && data.status === "success") {
                 status.textContent = `✅ Bot ${action === "start" ? "started" : "stopped"}`;
                 status.style.color = "#2ecc71";
             } else {
-                status.textContent = "⚠️ Server error";
+                status.textContent = `⚠️ ${data.message}`;
                 status.style.color = "#f1c40f";
             }
         } catch (err) {
