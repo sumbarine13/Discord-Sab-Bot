@@ -17,41 +17,33 @@ GROQ_TOKEN = os.environ.get("GROQ_TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
 PREFIX = "!"
 OWNER_ID = 1307042499898118246
+BOT_START_TIME = time.time()
 
 # ========== DATA STORAGE ==========
-class BotData:
-    def __init__(self):
-        self.warnings = {}
-        self.whitelist = []
-        self.blacklist = []
-        self.ai_history = {}
-        self.user_stats = {}
-        
-    def save(self):
-        data = {
-            "warnings": self.warnings,
-            "whitelist": self.whitelist,
-            "blacklist": self.blacklist
-        }
-        try:
-            with open("bot_data.json", "w") as f:
-                json.dump(data, f)
-        except:
-            pass
-    
-    def load(self):
-        try:
-            with open("bot_data.json", "r") as f:
-                data = json.load(f)
-                self.warnings = data.get("warnings", {})
-                self.whitelist = data.get("whitelist", [])
-                self.blacklist = data.get("blacklist", [])
-        except:
-            pass
+bot_data = {
+    "warnings": {},
+    "whitelist": [],
+    "blacklist": [],
+    "ai_history": {},
+    "user_stats": {}
+}
 
-bot_data = BotData()
-bot_data.load()
-BOT_START_TIME = time.time()
+def save_data():
+    try:
+        with open("bot_data.json", "w") as f:
+            json.dump(bot_data, f)
+    except:
+        pass
+
+def load_data():
+    try:
+        with open("bot_data.json", "r") as f:
+            data = json.load(f)
+            bot_data.update(data)
+    except:
+        pass
+
+load_data()
 
 # ========== HTTP SERVER ==========
 class BotHTTPServer(BaseHTTPRequestHandler):
@@ -87,18 +79,36 @@ class BotHTTPServer(BaseHTTPRequestHandler):
         <h1>🤖 DeepSeek Bot</h1>
         <p>Status: <span class="status">Online</span></p>
         <p>Owner ID: 1307042499898118246</p>
-        <p>AI: Groq Integrated | Commands: 65+</p>
+        <p>Commands: 65+ | Prefix: !</p>
+        <p>Bot is running on Render with Cloudflare</p>
     </div>
 </body>
 </html>"""
             self.wfile.write(html.encode("utf-8"))
+        elif self.path == "/status":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            status_data = {
+                "status": "online",
+                "uptime": int(time.time() - BOT_START_TIME),
+                "owner": str(OWNER_ID)
+            }
+            self.wfile.write(json.dumps(status_data).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
 
+    def log_message(self, format, *args):
+        pass
+
 def run_http_server():
-    server = HTTPServer(("0.0.0.0", PORT), BotHTTPServer)
-    server.serve_forever()
+    try:
+        server = HTTPServer(("0.0.0.0", PORT), BotHTTPServer)
+        print(f"✅ HTTP server started on port {PORT}")
+        server.serve_forever()
+    except Exception as e:
+        print(f"❌ HTTP server error: {e}")
 
 # ========== DISCORD BOT ==========
 intents = discord.Intents.default()
@@ -106,7 +116,7 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents, help_command=None)
 
-# ========== PERMISSION SYSTEM ==========
+# ========== HELPER FUNCTIONS ==========
 def is_owner():
     async def predicate(ctx):
         return ctx.author.id == OWNER_ID
@@ -116,21 +126,18 @@ def is_mod():
     async def predicate(ctx):
         if ctx.author.id == OWNER_ID:
             return True
-        if ctx.author.id in bot_data.whitelist:
+        if ctx.author.id in bot_data["whitelist"]:
             return True
-        if ctx.author.id in bot_data.blacklist:
-            await ctx.send("⛔ You are blacklisted from using commands!")
+        if ctx.author.id in bot_data["blacklist"]:
             return False
-        await ctx.send("⛔ Owner/whitelist only!")
         return False
     return commands.check(predicate)
 
 def is_not_blacklisted():
     async def predicate(ctx):
-        return ctx.author.id not in bot_data.blacklist
+        return ctx.author.id not in bot_data["blacklist"]
     return commands.check(predicate)
 
-# ========== GROQ AI INTEGRATION ==========
 async def ask_groq(question, max_tokens=150):
     """Ask Groq AI a question"""
     if not GROQ_TOKEN:
@@ -160,153 +167,43 @@ async def ask_groq(question, max_tokens=150):
     except Exception as e:
         return f"❌ Failed to connect to AI: {str(e)}"
 
-def fix_typos(text):
-    """Fix common typos in questions"""
-    corrections = {
-        "wht": "what",
-        "whn": "when",
-        "advce": "advice",
-        "sugestion": "suggestion",
-        "whr": "where",
-        "wy": "why",
-        "hw": "how"
-    }
-    text = text.lower()
-    for wrong, right in corrections.items():
-        text = text.replace(wrong, right)
-    return text
-
-# ========== SETUP HOOK ==========
-@bot.event
-async def setup_hook():
-    print("✅ Setup hook complete")
-
 # ========== EVENT HANDLERS ==========
 @bot.event
 async def on_ready():
-    print(f"✅ DeepSeek Bot is online!")
+    print(f"✅ {bot.user} is online!")
     print(f"🔒 Owner ID: {OWNER_ID}")
-    print(f"🤖 AI: {'Enabled' if GROQ_TOKEN else 'Disabled'}")
-    await bot.change_presence(activity=discord.Game(name=f"{PREFIX}help | Owner: {OWNER_ID}"))
+    print(f"📊 Connected to {len(bot.guilds)} servers")
+    await bot.change_presence(activity=discord.Game(name=f"{PREFIX}help"))
 
 @bot.event
-async def on_message(message):
-    if message.author.bot:
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
         return
-    
-    # Check for blacklisted users
-    if message.author.id in bot_data.blacklist:
-        return
-    
-    # AI response for questions
-    question_words = ["who", "what", "when", "where", "why", "how", "advice", "suggestion"]
-    text_lower = message.content.lower()
-    fixed_text = fix_typos(text_lower)
-    has_question = any(word in fixed_text for word in question_words)
-    is_mentioned = bot.user.mentioned_in(message)
-    
-    # Don't respond to commands
-    if message.content.startswith(PREFIX):
-        await bot.process_commands(message)
-        return
-    
-    # Respond if mentioned OR has question words
-    if is_mentioned or has_question:
-        if is_mentioned and len(message.content.strip().replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '')) < 2:
-            await message.reply("🤖 How can I help you? Use `!ask [question]` for AI answers!")
-            await bot.process_commands(message)
-            return
-        
-        async with message.channel.typing():
-            response = await ask_groq(message.content)
-            await message.reply(response)
-    
-    await bot.process_commands(message)
-
-# ========== WHITELIST/BLACKLIST COMMANDS ==========
-@bot.command()
-@is_owner()
-async def whitelist(ctx, action: str, member: discord.Member):
-    """[OWNER] Add/remove from whitelist"""
-    if action.lower() in ["add", "+"]:
-        if member.id not in bot_data.whitelist:
-            bot_data.whitelist.append(member.id)
-            bot_data.save()
-            await ctx.send(f"✅ Added {member.mention} to whitelist")
-        else:
-            await ctx.send("ℹ️ Already whitelisted")
-    elif action.lower() in ["remove", "-"]:
-        if member.id in bot_data.whitelist:
-            bot_data.whitelist.remove(member.id)
-            bot_data.save()
-            await ctx.send(f"✅ Removed {member.mention} from whitelist")
-        else:
-            await ctx.send("ℹ️ Not in whitelist")
+    elif isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f"⏰ Cooldown: {error.retry_after:.1f}s")
+    elif isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You don't have permission!")
     else:
-        await ctx.send("❌ Use: add/remove")
+        await ctx.send(f"❌ Error: {str(error)}")
 
-@bot.command()
-@is_owner()
-async def blacklist(ctx, action: str, member: discord.Member):
-    """[OWNER] Add/remove from blacklist"""
-    if action.lower() in ["add", "+"]:
-        if member.id not in bot_data.blacklist:
-            bot_data.blacklist.append(member.id)
-            bot_data.save()
-            await ctx.send(f"✅ Added {member.mention} to blacklist")
-        else:
-            await ctx.send("ℹ️ Already blacklisted")
-    elif action.lower() in ["remove", "-"]:
-        if member.id in bot_data.blacklist:
-            bot_data.blacklist.remove(member.id)
-            bot_data.save()
-            await ctx.send(f"✅ Removed {member.mention} from blacklist")
-        else:
-            await ctx.send("ℹ️ Not in blacklist")
-    else:
-        await ctx.send("❌ Use: add/remove")
-
-@bot.command()
-@is_owner()
-async def showlists(ctx):
-    """[OWNER] Show whitelist and blacklist"""
-    embed = discord.Embed(title="📋 Permission Lists", color=0x5865F2)
-    
-    wl = [f"<@{uid}>" for uid in bot_data.whitelist[:10]]
-    bl = [f"<@{uid}>" for uid in bot_data.blacklist[:10]]
-    
-    embed.add_field(
-        name=f"✅ Whitelist ({len(bot_data.whitelist)})",
-        value="\n".join(wl) if wl else "Empty",
-        inline=False
-    )
-    
-    embed.add_field(
-        name=f"❌ Blacklist ({len(bot_data.blacklist)})",
-        value="\n".join(bl) if bl else "Empty",
-        inline=False
-    )
-    
-    await ctx.send(embed=embed)
-
-# ========== TROLL COMMAND ==========
+# ========== MODERATION COMMANDS ==========
 @bot.command()
 @is_mod()
 async def troll(ctx, member: discord.Member):
-    """Prank ban a user with fake ban message"""
+    """Prank ban a user"""
     if member == ctx.author:
         await ctx.send("❌ Can't troll yourself!")
         return
     
-    # Create temporary invite (10 minutes, 1 use)
     try:
+        # Create temporary invite
         invite = await ctx.channel.create_invite(
             max_age=600,  # 10 minutes
             max_uses=1,
             reason=f"Troll invite for {member.display_name}"
         )
         
-        # Create the blue embed
+        # Create blue embed
         embed = discord.Embed(
             title="🔨 BANNED",
             description=(
@@ -314,52 +211,32 @@ async def troll(ctx, member: discord.Member):
                 f"||Jk you aren't banned but still do work||\n"
                 f"||Click [HERE]({invite.url}) to join back with your roles||"
             ),
-            color=0x5865F2  # Blue color
+            color=0x5865F2  # Blue
         )
         embed.set_footer(text="This is a prank! You're not actually banned.")
         
-        # Try to DM the user
         try:
             await member.send(embed=embed)
             await ctx.send(f"✅ Troll message sent to {member.mention}! 😈")
-        except discord.Forbidden:
-            await ctx.send(f"❌ Could not DM {member.mention}. They might have DMs disabled.")
+        except:
+            await ctx.send(f"❌ Could not DM {member.mention}")
             
-    except discord.Forbidden:
-        await ctx.send("❌ I need permission to create invites!")
     except Exception as e:
         await ctx.send(f"❌ Error: {str(e)}")
 
-# ========== MODERATION COMMANDS ==========
 @bot.command()
 @is_mod()
 async def kick(ctx, member: discord.Member, *, reason="No reason"):
     """Kick a member"""
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ Can't kick someone with equal/higher role!")
-        return
-    
     await member.kick(reason=reason)
-    await ctx.send(embed=discord.Embed(
-        title="👢 Kicked",
-        description=f"{member.mention} has been kicked\nReason: {reason}",
-        color=0xFFA500
-    ))
+    await ctx.send(f"👢 Kicked {member.mention} | Reason: {reason}")
 
 @bot.command()
 @is_mod()
 async def ban(ctx, member: discord.Member, *, reason="No reason"):
     """Ban a member"""
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send("❌ Can't ban someone with equal/higher role!")
-        return
-    
     await member.ban(reason=reason)
-    await ctx.send(embed=discord.Embed(
-        title="🔨 Banned",
-        description=f"{member.mention} has been banned\nReason: {reason}",
-        color=0xFF0000
-    ))
+    await ctx.send(f"🔨 Banned {member.mention} | Reason: {reason}")
 
 @bot.command()
 @is_mod()
@@ -378,13 +255,9 @@ async def mute(ctx, member: discord.Member):
     """Mute a member"""
     mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
     if not mute_role:
-        try:
-            mute_role = await ctx.guild.create_role(name="Muted")
-            for channel in ctx.guild.channels:
-                await channel.set_permissions(mute_role, send_messages=False)
-        except:
-            await ctx.send("❌ Could not create mute role!")
-            return
+        mute_role = await ctx.guild.create_role(name="Muted")
+        for channel in ctx.guild.channels:
+            await channel.set_permissions(mute_role, send_messages=False)
     
     await member.add_roles(mute_role)
     await ctx.send(f"🔇 Muted {member.mention}")
@@ -400,14 +273,10 @@ async def unmute(ctx, member: discord.Member):
 
 @bot.command()
 @is_mod()
-async def timeout(ctx, member: discord.Member, minutes: int = 10, *, reason="No reason"):
+async def timeout(ctx, member: discord.Member, minutes: int = 10):
     """Timeout a member"""
-    if minutes < 1 or minutes > 10080:
-        await ctx.send("❌ 1-10080 minutes (1 week) only!")
-        return
-    
     duration = timedelta(minutes=minutes)
-    await member.timeout(duration, reason=reason)
+    await member.timeout(duration)
     await ctx.send(f"⏰ {member.mention} timed out for {minutes} minutes")
 
 @bot.command()
@@ -422,16 +291,11 @@ async def untimeout(ctx, member: discord.Member):
 async def warn(ctx, member: discord.Member, *, reason="No reason"):
     """Warn a member"""
     user_id = str(member.id)
-    if user_id not in bot_data.warnings:
-        bot_data.warnings[user_id] = []
+    if user_id not in bot_data["warnings"]:
+        bot_data["warnings"][user_id] = []
     
-    bot_data.warnings[user_id].append({
-        "reason": reason,
-        "moderator": ctx.author.id,
-        "timestamp": time.time()
-    })
-    bot_data.save()
-    
+    bot_data["warnings"][user_id].append(reason)
+    save_data()
     await ctx.send(f"⚠️ Warned {member.mention} | Reason: {reason}")
 
 @bot.command()
@@ -440,22 +304,12 @@ async def warnings(ctx, member: discord.Member = None):
     member = member or ctx.author
     user_id = str(member.id)
     
-    if user_id not in bot_data.warnings or not bot_data.warnings[user_id]:
+    if user_id not in bot_data["warnings"] or not bot_data["warnings"][user_id]:
         await ctx.send(f"✅ {member.display_name} has no warnings")
         return
     
-    warns = bot_data.warnings[user_id][-5:]  # Last 5 warnings
-    embed = discord.Embed(title=f"⚠️ Warnings for {member.display_name}", color=0xFFA500)
-    
-    for i, warn in enumerate(warns, 1):
-        time_str = datetime.fromtimestamp(warn["timestamp"]).strftime("%Y-%m-%d")
-        embed.add_field(
-            name=f"Warning #{i}",
-            value=f"Reason: {warn['reason']}\nDate: {time_str}",
-            inline=False
-        )
-    
-    await ctx.send(embed=embed)
+    warns = "\n".join([f"• {w}" for w in bot_data["warnings"][user_id]])
+    await ctx.send(f"📋 Warnings for {member.display_name}:\n{warns}")
 
 @bot.command()
 @is_mod()
@@ -489,7 +343,7 @@ async def unlock(ctx):
 async def slowmode(ctx, seconds: int):
     """Set slowmode"""
     if seconds < 0 or seconds > 21600:
-        await ctx.send("❌ 0-21600 seconds (6 hours) only!")
+        await ctx.send("❌ 0-21600 seconds only!")
         return
     
     await ctx.channel.edit(slowmode_delay=seconds)
@@ -502,10 +356,6 @@ async def slowmode(ctx, seconds: int):
 @is_mod()
 async def nick(ctx, member: discord.Member, *, nickname: str = None):
     """Change nickname"""
-    if nickname and len(nickname) > 32:
-        await ctx.send("❌ Max 32 characters!")
-        return
-    
     await member.edit(nick=nickname)
     if nickname:
         await ctx.send(f"✅ {member.mention}'s nickname: {nickname}")
@@ -531,6 +381,72 @@ async def role(ctx, action: str, member: discord.Member, *, role_name: str):
     else:
         await ctx.send("❌ Use: add/give or remove/take")
 
+# ========== WHITELIST/BLACKLIST COMMANDS ==========
+@bot.command()
+@is_owner()
+async def whitelist(ctx, action: str, member: discord.Member):
+    """[OWNER] Add/remove from whitelist"""
+    if action.lower() in ["add", "+"]:
+        if member.id not in bot_data["whitelist"]:
+            bot_data["whitelist"].append(member.id)
+            save_data()
+            await ctx.send(f"✅ Added {member.mention} to whitelist")
+        else:
+            await ctx.send("ℹ️ Already whitelisted")
+    elif action.lower() in ["remove", "-"]:
+        if member.id in bot_data["whitelist"]:
+            bot_data["whitelist"].remove(member.id)
+            save_data()
+            await ctx.send(f"✅ Removed {member.mention} from whitelist")
+        else:
+            await ctx.send("ℹ️ Not in whitelist")
+    else:
+        await ctx.send("❌ Use: add/remove")
+
+@bot.command()
+@is_owner()
+async def blacklist(ctx, action: str, member: discord.Member):
+    """[OWNER] Add/remove from blacklist"""
+    if action.lower() in ["add", "+"]:
+        if member.id not in bot_data["blacklist"]:
+            bot_data["blacklist"].append(member.id)
+            save_data()
+            await ctx.send(f"✅ Added {member.mention} to blacklist")
+        else:
+            await ctx.send("ℹ️ Already blacklisted")
+    elif action.lower() in ["remove", "-"]:
+        if member.id in bot_data["blacklist"]:
+            bot_data["blacklist"].remove(member.id)
+            save_data()
+            await ctx.send(f"✅ Removed {member.mention} from blacklist")
+        else:
+            await ctx.send("ℹ️ Not in blacklist")
+    else:
+        await ctx.send("❌ Use: add/remove")
+
+@bot.command()
+@is_owner()
+async def showlists(ctx):
+    """[OWNER] Show whitelist and blacklist"""
+    embed = discord.Embed(title="📋 Permission Lists", color=0x5865F2)
+    
+    wl = [f"<@{uid}>" for uid in bot_data["whitelist"]]
+    bl = [f"<@{uid}>" for uid in bot_data["blacklist"]]
+    
+    embed.add_field(
+        name=f"✅ Whitelist ({len(bot_data['whitelist'])})",
+        value="\n".join(wl) if wl else "Empty",
+        inline=False
+    )
+    
+    embed.add_field(
+        name=f"❌ Blacklist ({len(bot_data['blacklist'])})",
+        value="\n".join(bl) if bl else "Empty",
+        inline=False
+    )
+    
+    await ctx.send(embed=embed)
+
 # ========== FUN COMMANDS ==========
 @bot.command()
 @is_not_blacklisted()
@@ -540,8 +456,7 @@ async def meme(ctx):
         "When the code works on first try... SUS",
         "Me: I'll just fix one bug. Also me: *rewrites entire project*",
         "Git commit -m 'Fixed stuff. Maybe.'",
-        "It's not a bug, it's a feature!",
-        "404: Motivation not found"
+        "It's not a bug, it's a feature!"
     ]
     await ctx.send(f"😂 {random.choice(memes)}")
 
@@ -552,9 +467,7 @@ async def joke(ctx):
     jokes = [
         "Why don't scientists trust atoms? Because they make up everything!",
         "What do you call a bear with no teeth? A gummy bear!",
-        "Why did the scarecrow win an award? He was outstanding in his field!",
-        "What do you call a fake noodle? An impasta!",
-        "Why don't eggs tell jokes? They'd crack each other up!"
+        "Why did the scarecrow win an award? He was outstanding in his field!"
     ]
     await ctx.send(f"😂 {random.choice(jokes)}")
 
@@ -580,10 +493,7 @@ async def coinflip(ctx):
 @is_not_blacklisted()
 async def eightball(ctx, *, question):
     """Magic 8-ball"""
-    answers = [
-        "Yes", "No", "Maybe", "Ask again", "Definitely",
-        "Never", "Outlook good", "Outlook not so good"
-    ]
+    answers = ["Yes", "No", "Maybe", "Ask again", "Definitely", "Never"]
     await ctx.send(f"🎱 **{question}**\nAnswer: {random.choice(answers)}")
 
 @bot.command()
@@ -594,24 +504,19 @@ async def compliment(ctx, member: discord.Member = None):
     compliments = [
         f"{member.display_name}, you're awesome! ✨",
         f"{member.display_name} is the best! 🌟",
-        f"Everyone loves {member.display_name}! ❤️",
-        f"{member.display_name} makes this server better! 🏆"
+        f"Everyone loves {member.display_name}! ❤️"
     ]
     await ctx.send(random.choice(compliments))
 
 @bot.command(name="insult")
 @is_not_blacklisted()
-async def insult_fun(ctx, member: discord.Member = None):
+async def insult_cmd(ctx, member: discord.Member = None):
     """Funny harmless insult"""
     member = member or ctx.author
-    if member == ctx.author:
-        member = bot.user  # Insult the bot instead
-    
     insults = [
         f"{member.display_name}, you're like a cloud. When you disappear, it's a beautiful day! ☁️",
-        f"{member.display_name}'s jokes are so bad they're good! 😂",
         f"If {member.display_name} was a vegetable, they'd be a cute-cumber! 🥒",
-        f"{member.display_name} is 100% reminder that someone actually knows how to use their 0% correctly! 💯"
+        f"{member.display_name}'s jokes are so bad they're good! 😂"
     ]
     await ctx.send(random.choice(insults))
 
@@ -619,7 +524,6 @@ async def insult_fun(ctx, member: discord.Member = None):
 @is_not_blacklisted()
 async def gif(ctx, *, query):
     """Search for a GIF"""
-    # In a real implementation, you would use Tenor or Giphy API
     await ctx.send(f"🔍 Searching GIF for: {query}\n*(GIF API not configured)*")
 
 @bot.command()
@@ -632,10 +536,7 @@ async def say(ctx, *, text):
 @is_not_blacklisted()
 async def hug(ctx, member: discord.Member):
     """Hug someone"""
-    if member == ctx.author:
-        await ctx.send("🤗 You hugged yourself! That's... wholesome?")
-    else:
-        await ctx.send(f"🤗 {ctx.author.mention} hugged {member.mention}!")
+    await ctx.send(f"🤗 {ctx.author.mention} hugged {member.mention}!")
 
 @bot.command()
 @is_not_blacklisted()
@@ -667,21 +568,17 @@ async def randomfact(ctx):
     facts = [
         "Honey never spoils! Archaeologists have found 3000-year-old honey!",
         "Octopuses have three hearts! ❤️❤️❤️",
-        "A group of flamingos is called a 'flamboyance'! 🦩",
-        "Bananas are berries, but strawberries are not! 🍌🍓",
-        "The shortest war in history lasted 38 minutes! ⏱️"
+        "A group of flamingos is called a 'flamboyance'! 🦩"
     ]
     await ctx.send(f"🧠 **Did you know?** {random.choice(facts)}")
 
 # ========== AI COMMANDS ==========
 @bot.command(name="ask")
 @is_not_blacklisted()
-async def ask_question(ctx, *, question):
-    """Ask AI a question (typo-tolerant)"""
-    fixed_question = fix_typos(question)
-    
+async def ask_cmd(ctx, *, question):
+    """Ask AI a question"""
     async with ctx.channel.typing():
-        response = await ask_groq(fixed_question)
+        response = await ask_groq(question)
         await ctx.send(f"🤖 **Q:** {question}\n**A:** {response}")
 
 @bot.command()
@@ -697,38 +594,16 @@ async def askai(ctx, *, question):
 async def summary(ctx, *, text):
     """Summarize text"""
     async with ctx.channel.typing():
-        response = await ask_groq(f"Summarize this text in 3 bullet points: {text}", max_tokens=200)
+        response = await ask_groq(f"Summarize this text: {text}", max_tokens=200)
         embed = discord.Embed(title="📝 Summary", description=response, color=0x5865F2)
         await ctx.send(embed=embed)
 
 @bot.command()
 @is_not_blacklisted()
-async def generate(ctx, *, prompt):
-    """AI image generation prompt"""
-    # Note: Groq doesn't do images, but we can generate a description
-    async with ctx.channel.typing():
-        response = await ask_groq(f"Describe an image based on: {prompt}", max_tokens=150)
-        await ctx.send(f"🎨 **Image Prompt:** {prompt}\n**Description:** {response}")
-
-@bot.command()
-@is_not_blacklisted()
 async def chat(ctx, *, message):
     """AI conversation"""
-    user_id = str(ctx.author.id)
-    if user_id not in bot_data.ai_history:
-        bot_data.ai_history[user_id] = []
-    
-    bot_data.ai_history[user_id].append(f"User: {message}")
-    
-    # Keep last 5 messages for context
-    if len(bot_data.ai_history[user_id]) > 5:
-        bot_data.ai_history[user_id] = bot_data.ai_history[user_id][-5:]
-    
-    context = "\n".join(bot_data.ai_history[user_id][-3:])  # Last 3 messages
-    
     async with ctx.channel.typing():
-        response = await ask_groq(f"{context}\nAI:", max_tokens=200)
-        bot_data.ai_history[user_id].append(f"AI: {response}")
+        response = await ask_groq(message, max_tokens=200)
         await ctx.send(f"💬 **Chat:** {response}")
 
 @bot.command()
@@ -789,7 +664,7 @@ async def help(ctx):
     
     embed.add_field(
         name="🤖 AI Commands",
-        value="`ask`, `askai`, `summary`, `generate`, `chat`, `translate`, `story`, `jokeai`, `advice`",
+        value="`ask`, `askai`, `summary`, `chat`, `translate`, `story`, `jokeai`, `advice`",
         inline=False
     )
     
@@ -799,22 +674,8 @@ async def help(ctx):
         inline=False
     )
     
-    embed.set_footer(text="AI responds to questions automatically! (who/what/when/where/why/how/advice/suggestion)")
+    embed.set_footer(text=f"Total commands: {len(bot.commands)}")
     await ctx.send(embed=embed)
-
-# ========== ERROR HANDLING ==========
-@bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
-        return
-    elif isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(f"⏰ Cooldown: {error.retry_after:.1f}s")
-    elif isinstance(error, commands.MissingPermissions):
-        await ctx.send("❌ You don't have permission!")
-    elif isinstance(error, commands.MissingRequiredArgument):
-        await ctx.send(f"❌ Missing argument! Use `{PREFIX}help`")
-    else:
-        await ctx.send(f"❌ Error: {str(error)}")
 
 # ========== MAIN ==========
 if __name__ == "__main__":
@@ -822,17 +683,21 @@ if __name__ == "__main__":
     http_thread = threading.Thread(target=run_http_server, daemon=True)
     http_thread.start()
     
-    # Run bot
-    if TOKEN:
-        print(f"🚀 Starting DeepSeek Bot")
-        print(f"🔒 Owner ID: {OWNER_ID}")
-        print(f"🌐 HTTP Server on port {PORT}")
-        print(f"🤖 AI: {'Ready' if GROQ_TOKEN else 'Disabled (set GROQ_TOKEN)'}")
-        print(f"📊 Whitelisted: {len(bot_data.whitelist)} users")
-        print(f"📋 Blacklisted: {len(bot_data.blacklist)} users")
-        print("✅ Ready for deployment!")
-        bot.run(TOKEN)
-    else:
+    print(f"🚀 Starting DeepSeek Bot")
+    print(f"🔒 Owner ID: {OWNER_ID}")
+    print(f"🌐 HTTP Server on port {PORT}")
+    print(f"🤖 AI: {'Ready' if GROQ_TOKEN else 'Disabled (set GROQ_TOKEN)'}")
+    print(f"📊 Whitelisted: {len(bot_data['whitelist'])} users")
+    print(f"📋 Blacklisted: {len(bot_data['blacklist'])} users")
+    print(f"📁 Commands loaded: {len(bot.commands)}")
+    
+    if not TOKEN:
         print("❌ ERROR: DISCORD_TOKEN environment variable not set!")
         print("   Set it in Render Dashboard -> Environment Variables")
+        sys.exit(1)
+    
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        print(f"❌ Bot crashed: {e}")
         sys.exit(1)
