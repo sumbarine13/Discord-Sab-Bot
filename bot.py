@@ -973,7 +973,7 @@ if __name__ == "__main__":
     http_thread = threading.Thread(target=run_http_server, daemon=True)
     http_thread.start()
     
-  bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 
 async def check_reminders():
