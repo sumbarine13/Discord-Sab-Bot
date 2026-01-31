@@ -7,44 +7,94 @@ import aiohttp
 import threading
 import time
 import json
+import sys
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from datetime import datetime
 
 # ========== CONFIGURATION ==========
 TOKEN = os.environ.get("DISCORD_TOKEN")
+GROQ_TOKEN = os.environ.get("GROQ_TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
 PREFIX = "!"
-OWNER_IDS = [1307042499898118246]  # Replace with your Discord ID
+OWNER_ID = 1307042499898118246
+
+# ========== DATA STORAGE ==========
+class BotData:
+    def __init__(self):
+        self.warnings = {}
+        self.whitelist = []
+        self.blacklist = []
+        self.ai_history = {}
+        self.user_stats = {}
+        
+    def save(self):
+        data = {
+            "warnings": self.warnings,
+            "whitelist": self.whitelist,
+            "blacklist": self.blacklist
+        }
+        try:
+            with open("bot_data.json", "w") as f:
+                json.dump(data, f)
+        except:
+            pass
+    
+    def load(self):
+        try:
+            with open("bot_data.json", "r") as f:
+                data = json.load(f)
+                self.warnings = data.get("warnings", {})
+                self.whitelist = data.get("whitelist", [])
+                self.blacklist = data.get("blacklist", [])
+        except:
+            pass
+
+bot_data = BotData()
+bot_data.load()
 BOT_START_TIME = time.time()
 
-# ========== HTTP SERVER FOR RENDER ==========
+# ========== HTTP SERVER ==========
 class BotHTTPServer(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == "/":
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            with open("index.html", "r", encoding="utf-8") as f:
-                html = f.read()
+            html = """<!DOCTYPE html>
+<html>
+<head>
+    <title>DeepSeek Bot</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container { 
+            background: rgba(255, 255, 255, 0.1); 
+            padding: 40px; 
+            border-radius: 15px; 
+            display: inline-block; 
+        }
+        h1 { color: white; }
+        .status { color: #4CAF50; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 DeepSeek Bot</h1>
+        <p>Status: <span class="status">Online</span></p>
+        <p>Owner ID: 1307042499898118246</p>
+        <p>AI: Groq Integrated | Commands: 65+</p>
+    </div>
+</body>
+</html>"""
             self.wfile.write(html.encode("utf-8"))
-        elif self.path == "/status":
-            self.send_response(200)
-            self.send_header("Content-type", "application/json")
-            self.end_headers()
-            status_data = {
-                "status": "online",
-                "uptime": int(time.time() - BOT_START_TIME),
-                "guilds": len(bot.guilds) if bot.is_ready() else 0,
-                "commands": len(bot.commands)
-            }
-            self.wfile.write(json.dumps(status_data).encode("utf-8"))
         else:
             self.send_response(404)
             self.end_headers()
-            self.wfile.write(b"Not Found")
-
-    def log_message(self, format, *args):
-        pass
 
 def run_http_server():
     server = HTTPServer(("0.0.0.0", PORT), BotHTTPServer)
@@ -56,162 +106,447 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix=PREFIX, intents=intents, help_command=None)
 
-# ========== DATA STORAGE ==========
-bot_data = {
-    "warnings": {},
-    "reminders": [],
-    "user_stats": {},
-    "game_scores": {},
-    "server_configs": {}
-}
-
-# ========== HELPER FUNCTIONS ==========
-def create_embed(title, description, color=0x5865F2):
-    embed = discord.Embed(
-        title=title,
-        description=description,
-        color=color,
-        timestamp=datetime.utcnow()
-    )
-    embed.set_footer(text=f"Requested by")
-    return embed
-
+# ========== PERMISSION SYSTEM ==========
 def is_owner():
     async def predicate(ctx):
-        return ctx.author.id in OWNER_IDS
+        return ctx.author.id == OWNER_ID
     return commands.check(predicate)
+
+def is_mod():
+    async def predicate(ctx):
+        if ctx.author.id == OWNER_ID:
+            return True
+        if ctx.author.id in bot_data.whitelist:
+            return True
+        if ctx.author.id in bot_data.blacklist:
+            await ctx.send("⛔ You are blacklisted from using commands!")
+            return False
+        await ctx.send("⛔ Owner/whitelist only!")
+        return False
+    return commands.check(predicate)
+
+def is_not_blacklisted():
+    async def predicate(ctx):
+        return ctx.author.id not in bot_data.blacklist
+    return commands.check(predicate)
+
+# ========== GROQ AI INTEGRATION ==========
+async def ask_groq(question, max_tokens=150):
+    """Ask Groq AI a question"""
+    if not GROQ_TOKEN:
+        return "🤖 AI not configured. Add GROQ_TOKEN environment variable."
+    
+    try:
+        headers = {"Authorization": f"Bearer {GROQ_TOKEN}"}
+        payload = {
+            "model": "mixtral-8x7b-32768",
+            "messages": [{"role": "user", "content": question}],
+            "temperature": 0.7,
+            "max_tokens": max_tokens
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=10
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    return "⚠️ AI service error"
+    except Exception as e:
+        return f"❌ Failed to connect to AI: {str(e)}"
+
+def fix_typos(text):
+    """Fix common typos in questions"""
+    corrections = {
+        "wht": "what",
+        "whn": "when",
+        "advce": "advice",
+        "sugestion": "suggestion",
+        "whr": "where",
+        "wy": "why",
+        "hw": "how"
+    }
+    text = text.lower()
+    for wrong, right in corrections.items():
+        text = text.replace(wrong, right)
+    return text
+
+# ========== SETUP HOOK ==========
+@bot.event
+async def setup_hook():
+    print("✅ Setup hook complete")
 
 # ========== EVENT HANDLERS ==========
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is online!")
-    print(f"Connected to {len(bot.guilds)} guilds")
-    await bot.change_presence(activity=discord.Game(name=f"{PREFIX}help"))
+    print(f"✅ DeepSeek Bot is online!")
+    print(f"🔒 Owner ID: {OWNER_ID}")
+    print(f"🤖 AI: {'Enabled' if GROQ_TOKEN else 'Disabled'}")
+    await bot.change_presence(activity=discord.Game(name=f"{PREFIX}help | Owner: {OWNER_ID}"))
 
 @bot.event
-async def on_command_error(ctx, error):
-    if isinstance(error, commands.CommandNotFound):
+async def on_message(message):
+    if message.author.bot:
         return
-    elif isinstance(error, commands.MissingPermissions):
-        await ctx.send(embed=create_embed("❌ Missing Permissions", "You don't have permission to use this command!", 0xFF0000))
-    elif isinstance(error, commands.CommandOnCooldown):
-        await ctx.send(embed=create_embed("⏰ Cooldown", f"Please wait {error.retry_after:.1f} seconds!", 0xFFA500))
+    
+    # Check for blacklisted users
+    if message.author.id in bot_data.blacklist:
+        return
+    
+    # AI response for questions
+    question_words = ["who", "what", "when", "where", "why", "how", "advice", "suggestion"]
+    text_lower = message.content.lower()
+    fixed_text = fix_typos(text_lower)
+    has_question = any(word in fixed_text for word in question_words)
+    is_mentioned = bot.user.mentioned_in(message)
+    
+    # Don't respond to commands
+    if message.content.startswith(PREFIX):
+        await bot.process_commands(message)
+        return
+    
+    # Respond if mentioned OR has question words
+    if is_mentioned or has_question:
+        if is_mentioned and len(message.content.strip().replace(f'<@{bot.user.id}>', '').replace(f'<@!{bot.user.id}>', '')) < 2:
+            await message.reply("🤖 How can I help you? Use `!ask [question]` for AI answers!")
+            await bot.process_commands(message)
+            return
+        
+        async with message.channel.typing():
+            response = await ask_groq(message.content)
+            await message.reply(response)
+    
+    await bot.process_commands(message)
+
+# ========== WHITELIST/BLACKLIST COMMANDS ==========
+@bot.command()
+@is_owner()
+async def whitelist(ctx, action: str, member: discord.Member):
+    """[OWNER] Add/remove from whitelist"""
+    if action.lower() in ["add", "+"]:
+        if member.id not in bot_data.whitelist:
+            bot_data.whitelist.append(member.id)
+            bot_data.save()
+            await ctx.send(f"✅ Added {member.mention} to whitelist")
+        else:
+            await ctx.send("ℹ️ Already whitelisted")
+    elif action.lower() in ["remove", "-"]:
+        if member.id in bot_data.whitelist:
+            bot_data.whitelist.remove(member.id)
+            bot_data.save()
+            await ctx.send(f"✅ Removed {member.mention} from whitelist")
+        else:
+            await ctx.send("ℹ️ Not in whitelist")
     else:
-        await ctx.send(embed=create_embed("❌ Error", f"An error occurred: {str(error)}", 0xFF0000))
-
-# ========== UTILITY COMMANDS (10) ==========
-@bot.command()
-async def ping(ctx):
-    """Check bot latency"""
-    latency = round(bot.latency * 1000)
-    await ctx.send(embed=create_embed("🏓 Pong!", f"Latency: {latency}ms"))
+        await ctx.send("❌ Use: add/remove")
 
 @bot.command()
-async def help(ctx):
-    """Show help menu"""
-    embed = create_embed("🤖 Bot Help", "Prefix: `!`")
+@is_owner()
+async def blacklist(ctx, action: str, member: discord.Member):
+    """[OWNER] Add/remove from blacklist"""
+    if action.lower() in ["add", "+"]:
+        if member.id not in bot_data.blacklist:
+            bot_data.blacklist.append(member.id)
+            bot_data.save()
+            await ctx.send(f"✅ Added {member.mention} to blacklist")
+        else:
+            await ctx.send("ℹ️ Already blacklisted")
+    elif action.lower() in ["remove", "-"]:
+        if member.id in bot_data.blacklist:
+            bot_data.blacklist.remove(member.id)
+            bot_data.save()
+            await ctx.send(f"✅ Removed {member.mention} from blacklist")
+        else:
+            await ctx.send("ℹ️ Not in blacklist")
+    else:
+        await ctx.send("❌ Use: add/remove")
+
+@bot.command()
+@is_owner()
+async def showlists(ctx):
+    """[OWNER] Show whitelist and blacklist"""
+    embed = discord.Embed(title="📋 Permission Lists", color=0x5865F2)
     
-    categories = {
-        "🔧 Utility": ["ping", "help", "uptime", "invite", "userinfo", "serverinfo", "avatar", "embed", "say", "remind"],
-        "🎮 Fun": ["meme", "joke", "coinflip", "dice", "8ball", "rate", "choose", "reverse", "mock", "ascii", "compliment", "roast", "ship", "hack", "cat"],
-        "🎲 Games": ["rps", "guess", "math", "trivia", "slots", "battle", "tictactoe", "count", "wordchain", "leaderboard"],
-        "🛡️ Moderation": ["kick", "ban", "unban", "timeout", "untimeout", "purge", "slowmode", "lock", "unlock", "warn", "warnings", "clearwarns", "nick", "role", "mute"],
-        "⚙️ Admin": ["setprefix", "setstatus", "setactivity", "reload", "shutdown", "restart", "announce", "poll", "giveaway", "config"],
-        "🎭 Prank": ["trollkick", "fakeban", "fakecrash", "ghostping", "rickroll"]
-    }
+    wl = [f"<@{uid}>" for uid in bot_data.whitelist[:10]]
+    bl = [f"<@{uid}>" for uid in bot_data.blacklist[:10]]
     
-    for category, commands_list in categories.items():
-        embed.add_field(name=category, value="`" + "`, `".join(commands_list) + "`", inline=False)
+    embed.add_field(
+        name=f"✅ Whitelist ({len(bot_data.whitelist)})",
+        value="\n".join(wl) if wl else "Empty",
+        inline=False
+    )
+    
+    embed.add_field(
+        name=f"❌ Blacklist ({len(bot_data.blacklist)})",
+        value="\n".join(bl) if bl else "Empty",
+        inline=False
+    )
     
     await ctx.send(embed=embed)
 
+# ========== TROLL COMMAND ==========
 @bot.command()
-async def uptime(ctx):
-    """Check bot uptime"""
-    uptime_seconds = int(time.time() - BOT_START_TIME)
-    hours, remainder = divmod(uptime_seconds, 3600)
-    minutes, seconds = divmod(remainder, 60)
-    await ctx.send(embed=create_embed("⏰ Uptime", f"{hours}h {minutes}m {seconds}s"))
-
-@bot.command()
-async def invite(ctx):
-    """Get bot invite link"""
-    await ctx.send(embed=create_embed("🔗 Invite", f"[Click here to invite me!](https://discord.com/oauth2/authorize?client_id={bot.user.id}&scope=bot&permissions=8)"))
-
-@bot.command()
-async def userinfo(ctx, member: discord.Member = None):
-    """Get user information"""
-    member = member or ctx.author
-    embed = create_embed(f"👤 {member.display_name}", "")
-    embed.add_field(name="Username", value=f"{member.name}#{member.discriminator}", inline=True)
-    embed.add_field(name="ID", value=member.id, inline=True)
-    embed.add_field(name="Joined Server", value=member.joined_at.strftime("%Y-%m-%d"), inline=True)
-    embed.add_field(name="Account Created", value=member.created_at.strftime("%Y-%m-%d"), inline=True)
-    embed.add_field(name="Roles", value=len(member.roles) - 1, inline=True)
-    embed.set_thumbnail(url=member.avatar.url if member.avatar else member.default_avatar.url)
-    await ctx.send(embed=embed)
-
-@bot.command()
-async def serverinfo(ctx):
-    """Get server information"""
-    guild = ctx.guild
-    embed = create_embed(f"🏰 {guild.name}", "")
-    embed.add_field(name="Owner", value=guild.owner.mention, inline=True)
-    embed.add_field(name="Members", value=guild.member_count, inline=True)
-    embed.add_field(name="Channels", value=len(guild.channels), inline=True)
-    embed.add_field(name="Roles", value=len(guild.roles), inline=True)
-    embed.add_field(name="Created", value=guild.created_at.strftime("%Y-%m-%d"), inline=True)
-    embed.add_field(name="Boost Level", value=guild.premium_tier, inline=True)
-    if guild.icon:
-        embed.set_thumbnail(url=guild.icon.url)
-    await ctx.send(embed=embed)
-
-@bot.command()
-async def avatar(ctx, member: discord.Member = None):
-    """Get user's avatar"""
-    member = member or ctx.author
-    await ctx.send(embed=create_embed(f"🖼️ {member.display_name}'s Avatar", f"[Download]({member.avatar.url if member.avatar else member.default_avatar.url})").set_image(url=member.avatar.url if member.avatar else member.default_avatar.url))
-
-@bot.command()
-async def embed(ctx, *, text):
-    """Create an embed with your text"""
-    await ctx.send(embed=create_embed("📝 Embed", text))
-
-@bot.command()
-async def say(ctx, *, message):
-    """Make the bot say something"""
-    await ctx.send(message)
-
-@bot.command()
-async def remind(ctx, time_in_minutes: int, *, reminder):
-    """Set a reminder"""
-    if time_in_minutes > 1440:
-        await ctx.send(embed=create_embed("❌ Error", "Maximum reminder time is 24 hours (1440 minutes)", 0xFF0000))
+@is_mod()
+async def troll(ctx, member: discord.Member):
+    """Prank ban a user with fake ban message"""
+    if member == ctx.author:
+        await ctx.send("❌ Can't troll yourself!")
         return
     
-    bot_data["reminders"].append({
-        "user": ctx.author.id,
-        "channel": ctx.channel.id,
-        "reminder": reminder,
-        "time": time.time() + (time_in_minutes * 60)
-    })
-    
-    await ctx.send(embed=create_embed("⏰ Reminder Set", f"I'll remind you in {time_in_minutes} minute(s) about: {reminder}"))
+    # Create temporary invite (10 minutes, 1 use)
+    try:
+        invite = await ctx.channel.create_invite(
+            max_age=600,  # 10 minutes
+            max_uses=1,
+            reason=f"Troll invite for {member.display_name}"
+        )
+        
+        # Create the blue embed
+        embed = discord.Embed(
+            title="🔨 BANNED",
+            description=(
+                f"You have been banned from **{ctx.guild.name}** from <@{OWNER_ID}> for not complying with staff.\n\n"
+                f"||Jk you aren't banned but still do work||\n"
+                f"||Click [HERE]({invite.url}) to join back with your roles||"
+            ),
+            color=0x5865F2  # Blue color
+        )
+        embed.set_footer(text="This is a prank! You're not actually banned.")
+        
+        # Try to DM the user
+        try:
+            await member.send(embed=embed)
+            await ctx.send(f"✅ Troll message sent to {member.mention}! 😈")
+        except discord.Forbidden:
+            await ctx.send(f"❌ Could not DM {member.mention}. They might have DMs disabled.")
+            
+    except discord.Forbidden:
+        await ctx.send("❌ I need permission to create invites!")
+    except Exception as e:
+        await ctx.send(f"❌ Error: {str(e)}")
 
-# ========== FUN COMMANDS (15) ==========
+# ========== MODERATION COMMANDS ==========
 @bot.command()
+@is_mod()
+async def kick(ctx, member: discord.Member, *, reason="No reason"):
+    """Kick a member"""
+    if member.top_role >= ctx.author.top_role:
+        await ctx.send("❌ Can't kick someone with equal/higher role!")
+        return
+    
+    await member.kick(reason=reason)
+    await ctx.send(embed=discord.Embed(
+        title="👢 Kicked",
+        description=f"{member.mention} has been kicked\nReason: {reason}",
+        color=0xFFA500
+    ))
+
+@bot.command()
+@is_mod()
+async def ban(ctx, member: discord.Member, *, reason="No reason"):
+    """Ban a member"""
+    if member.top_role >= ctx.author.top_role:
+        await ctx.send("❌ Can't ban someone with equal/higher role!")
+        return
+    
+    await member.ban(reason=reason)
+    await ctx.send(embed=discord.Embed(
+        title="🔨 Banned",
+        description=f"{member.mention} has been banned\nReason: {reason}",
+        color=0xFF0000
+    ))
+
+@bot.command()
+@is_mod()
+async def unban(ctx, user_id: int):
+    """Unban a user"""
+    try:
+        user = await bot.fetch_user(user_id)
+        await ctx.guild.unban(user)
+        await ctx.send(f"✅ Unbanned {user}")
+    except:
+        await ctx.send("❌ User not found or not banned")
+
+@bot.command()
+@is_mod()
+async def mute(ctx, member: discord.Member):
+    """Mute a member"""
+    mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
+    if not mute_role:
+        try:
+            mute_role = await ctx.guild.create_role(name="Muted")
+            for channel in ctx.guild.channels:
+                await channel.set_permissions(mute_role, send_messages=False)
+        except:
+            await ctx.send("❌ Could not create mute role!")
+            return
+    
+    await member.add_roles(mute_role)
+    await ctx.send(f"🔇 Muted {member.mention}")
+
+@bot.command()
+@is_mod()
+async def unmute(ctx, member: discord.Member):
+    """Unmute a member"""
+    mute_role = discord.utils.get(ctx.guild.roles, name="Muted")
+    if mute_role and mute_role in member.roles:
+        await member.remove_roles(mute_role)
+        await ctx.send(f"🔊 Unmuted {member.mention}")
+
+@bot.command()
+@is_mod()
+async def timeout(ctx, member: discord.Member, minutes: int = 10, *, reason="No reason"):
+    """Timeout a member"""
+    if minutes < 1 or minutes > 10080:
+        await ctx.send("❌ 1-10080 minutes (1 week) only!")
+        return
+    
+    duration = timedelta(minutes=minutes)
+    await member.timeout(duration, reason=reason)
+    await ctx.send(f"⏰ {member.mention} timed out for {minutes} minutes")
+
+@bot.command()
+@is_mod()
+async def untimeout(ctx, member: discord.Member):
+    """Remove timeout"""
+    await member.timeout(None)
+    await ctx.send(f"✅ {member.mention}'s timeout removed")
+
+@bot.command()
+@is_mod()
+async def warn(ctx, member: discord.Member, *, reason="No reason"):
+    """Warn a member"""
+    user_id = str(member.id)
+    if user_id not in bot_data.warnings:
+        bot_data.warnings[user_id] = []
+    
+    bot_data.warnings[user_id].append({
+        "reason": reason,
+        "moderator": ctx.author.id,
+        "timestamp": time.time()
+    })
+    bot_data.save()
+    
+    await ctx.send(f"⚠️ Warned {member.mention} | Reason: {reason}")
+
+@bot.command()
+async def warnings(ctx, member: discord.Member = None):
+    """View warnings"""
+    member = member or ctx.author
+    user_id = str(member.id)
+    
+    if user_id not in bot_data.warnings or not bot_data.warnings[user_id]:
+        await ctx.send(f"✅ {member.display_name} has no warnings")
+        return
+    
+    warns = bot_data.warnings[user_id][-5:]  # Last 5 warnings
+    embed = discord.Embed(title=f"⚠️ Warnings for {member.display_name}", color=0xFFA500)
+    
+    for i, warn in enumerate(warns, 1):
+        time_str = datetime.fromtimestamp(warn["timestamp"]).strftime("%Y-%m-%d")
+        embed.add_field(
+            name=f"Warning #{i}",
+            value=f"Reason: {warn['reason']}\nDate: {time_str}",
+            inline=False
+        )
+    
+    await ctx.send(embed=embed)
+
+@bot.command()
+@is_mod()
+async def clear(ctx, amount: int = 10):
+    """Delete messages"""
+    if amount < 1 or amount > 100:
+        await ctx.send("❌ 1-100 messages only!")
+        return
+    
+    deleted = await ctx.channel.purge(limit=amount + 1)
+    msg = await ctx.send(f"🧹 Deleted {len(deleted) - 1} messages")
+    await asyncio.sleep(3)
+    await msg.delete()
+
+@bot.command()
+@is_mod()
+async def lock(ctx):
+    """Lock channel"""
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
+    await ctx.send("🔒 Channel locked")
+
+@bot.command()
+@is_mod()
+async def unlock(ctx):
+    """Unlock channel"""
+    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
+    await ctx.send("🔓 Channel unlocked")
+
+@bot.command()
+@is_mod()
+async def slowmode(ctx, seconds: int):
+    """Set slowmode"""
+    if seconds < 0 or seconds > 21600:
+        await ctx.send("❌ 0-21600 seconds (6 hours) only!")
+        return
+    
+    await ctx.channel.edit(slowmode_delay=seconds)
+    if seconds == 0:
+        await ctx.send("✅ Slowmode disabled")
+    else:
+        await ctx.send(f"🐌 Slowmode: {seconds}s")
+
+@bot.command()
+@is_mod()
+async def nick(ctx, member: discord.Member, *, nickname: str = None):
+    """Change nickname"""
+    if nickname and len(nickname) > 32:
+        await ctx.send("❌ Max 32 characters!")
+        return
+    
+    await member.edit(nick=nickname)
+    if nickname:
+        await ctx.send(f"✅ {member.mention}'s nickname: {nickname}")
+    else:
+        await ctx.send(f"✅ {member.mention}'s nickname reset")
+
+@bot.command()
+@is_mod()
+async def role(ctx, action: str, member: discord.Member, *, role_name: str):
+    """Add/remove role"""
+    role = discord.utils.get(ctx.guild.roles, name=role_name)
+    if not role:
+        await ctx.send(f"❌ Role '{role_name}' not found!")
+        return
+    
+    action = action.lower()
+    if action in ["add", "give"]:
+        await member.add_roles(role)
+        await ctx.send(f"✅ Added {role.name} to {member.mention}")
+    elif action in ["remove", "take"]:
+        await member.remove_roles(role)
+        await ctx.send(f"✅ Removed {role.name} from {member.mention}")
+    else:
+        await ctx.send("❌ Use: add/give or remove/take")
+
+# ========== FUN COMMANDS ==========
+@bot.command()
+@is_not_blacklisted()
 async def meme(ctx):
     """Get a random meme"""
     memes = [
-        "When you finally fix the bug at 3 AM",
-        "Me: I'll start my project tomorrow. Also me: *proceeds to procrastinate*",
-        "Debugging be like: It works on my machine!",
-        "When the bot works perfectly in testing but breaks in production",
-        "Git commit -m 'Fixed stuff'"
+        "When the code works on first try... SUS",
+        "Me: I'll just fix one bug. Also me: *rewrites entire project*",
+        "Git commit -m 'Fixed stuff. Maybe.'",
+        "It's not a bug, it's a feature!",
+        "404: Motivation not found"
     ]
-    await ctx.send(embed=create_embed("😂 Meme", random.choice(memes)))
+    await ctx.send(f"😂 {random.choice(memes)}")
 
 @bot.command()
+@is_not_blacklisted()
 async def joke(ctx):
     """Get a random joke"""
     jokes = [
@@ -221,751 +556,265 @@ async def joke(ctx):
         "What do you call a fake noodle? An impasta!",
         "Why don't eggs tell jokes? They'd crack each other up!"
     ]
-    await ctx.send(embed=create_embed("😂 Joke", random.choice(jokes)))
+    await ctx.send(f"😂 {random.choice(jokes)}")
 
 @bot.command()
+@is_not_blacklisted()
+async def dice(ctx, sides: int = 6):
+    """Roll a dice"""
+    if sides < 2 or sides > 100:
+        await ctx.send("❌ 2-100 sides only!")
+        return
+    
+    roll = random.randint(1, sides)
+    await ctx.send(f"🎲 Rolled: **{roll}** (1-{sides})")
+
+@bot.command()
+@is_not_blacklisted()
 async def coinflip(ctx):
     """Flip a coin"""
     result = random.choice(["Heads", "Tails"])
-    await ctx.send(embed=create_embed("🪙 Coin Flip", f"The coin landed on **{result}**!"))
+    await ctx.send(f"🪙 **{result}**!")
 
 @bot.command()
-async def dice(ctx, sides: int = 6):
-    """Roll a dice (default 6 sides)"""
-    if sides < 2 or sides > 100:
-        await ctx.send(embed=create_embed("❌ Error", "Dice must have between 2 and 100 sides", 0xFF0000))
-        return
-    
-    result = random.randint(1, sides)
-    await ctx.send(embed=create_embed("🎲 Dice Roll", f"You rolled a **{result}** on a {sides}-sided dice!"))
-
-@bot.command()
+@is_not_blacklisted()
 async def eightball(ctx, *, question):
-    """Ask the magic 8-ball"""
-    responses = [
-        "It is certain", "It is decidedly so", "Without a doubt", "Yes definitely",
-        "You may rely on it", "As I see it, yes", "Most likely", "Outlook good",
-        "Yes", "Signs point to yes", "Reply hazy try again", "Ask again later",
-        "Better not tell you now", "Cannot predict now", "Concentrate and ask again",
-        "Don't count on it", "My reply is no", "My sources say no", "Outlook not so good",
-        "Very doubtful"
+    """Magic 8-ball"""
+    answers = [
+        "Yes", "No", "Maybe", "Ask again", "Definitely",
+        "Never", "Outlook good", "Outlook not so good"
     ]
-    await ctx.send(embed=create_embed("🎱 Magic 8-Ball", f"**Q:** {question}\n**A:** {random.choice(responses)}"))
+    await ctx.send(f"🎱 **{question}**\nAnswer: {random.choice(answers)}")
 
 @bot.command()
-async def rate(ctx, *, thing):
-    """Rate something out of 10"""
-    rating = random.randint(1, 10)
-    stars = "⭐" * rating + "☆" * (10 - rating)
-    await ctx.send(embed=create_embed("⭐ Rating", f"I rate **{thing}** a **{rating}/10**!\n{stars}"))
-
-@bot.command()
-async def choose(ctx, *, options):
-    """Choose between options separated by 'or'"""
-    if " or " not in options:
-        await ctx.send(embed=create_embed("❌ Error", "Please separate options with 'or' (e.g., `!choose pizza or burgers`)", 0xFF0000))
-        return
-    
-    choices = [opt.strip() for opt in options.split(" or ") if opt.strip()]
-    if len(choices) < 2:
-        await ctx.send(embed=create_embed("❌ Error", "Please provide at least 2 options", 0xFF0000))
-        return
-    
-    choice = random.choice(choices)
-    await ctx.send(embed=create_embed("🤔 Choose", f"I choose: **{choice}**!"))
-
-@bot.command()
-async def reverse(ctx, *, text):
-    """Reverse your text"""
-    reversed_text = text[::-1]
-    await ctx.send(embed=create_embed("🔁 Reverse", f"Original: {text}\nReversed: {reversed_text}"))
-
-@bot.command()
-async def mock(ctx, *, text):
-    """MoCk YoUr TeXt LiKe ThIs"""
-    mocked = "".join([char.upper() if i % 2 == 0 else char.lower() for i, char in enumerate(text)])
-    await ctx.send(embed=create_embed("🤪 Mock", mocked))
-
-@bot.command()
-async def ascii(ctx, *, text):
-    """Convert text to ASCII art (simple)"""
-    if len(text) > 10:
-        await ctx.send(embed=create_embed("❌ Error", "Text must be 10 characters or less", 0xFF0000))
-        return
-    
-    ascii_art = ""
-    for char in text.upper():
-        if char.isalpha():
-            ascii_art += f":regional_indicator_{char.lower()}: "
-        elif char.isdigit():
-            ascii_art += f":{['zero','one','two','three','four','five','six','seven','eight','nine'][int(char)]}: "
-        elif char == " ":
-            ascii_art += "   "
-        else:
-            ascii_art += char + " "
-    
-    await ctx.send(ascii_art)
-
-@bot.command()
+@is_not_blacklisted()
 async def compliment(ctx, member: discord.Member = None):
-    """Give someone a compliment"""
+    """Give a compliment"""
     member = member or ctx.author
     compliments = [
-        f"{member.display_name}, you're amazing! ✨",
-        f"{member.display_name} has the best smile! 😊",
+        f"{member.display_name}, you're awesome! ✨",
+        f"{member.display_name} is the best! 🌟",
         f"Everyone loves {member.display_name}! ❤️",
-        f"{member.display_name} is a ray of sunshine! ☀️",
         f"{member.display_name} makes this server better! 🏆"
     ]
-    await ctx.send(embed=create_embed("💖 Compliment", random.choice(compliments)))
+    await ctx.send(random.choice(compliments))
 
-@bot.command()
-async def roast(ctx, member: discord.Member = None):
-    """Light-hearted roast (friendly)"""
+@bot.command(name="insult")
+@is_not_blacklisted()
+async def insult_fun(ctx, member: discord.Member = None):
+    """Funny harmless insult"""
     member = member or ctx.author
-    roasts = [
+    if member == ctx.author:
+        member = bot.user  # Insult the bot instead
+    
+    insults = [
         f"{member.display_name}, you're like a cloud. When you disappear, it's a beautiful day! ☁️",
-        f"{member.display_name} is so funny... not! 😅",
-        f"If {member.display_name} was a vegetable, they'd be a cute-cumber! 🥒",
         f"{member.display_name}'s jokes are so bad they're good! 😂",
+        f"If {member.display_name} was a vegetable, they'd be a cute-cumber! 🥒",
         f"{member.display_name} is 100% reminder that someone actually knows how to use their 0% correctly! 💯"
     ]
-    await ctx.send(embed=create_embed("🔥 Roast", random.choice(roasts)))
+    await ctx.send(random.choice(insults))
 
 @bot.command()
-async def ship(ctx, user1: discord.Member, user2: discord.Member = None):
-    """Ship two users together"""
-    user2 = user2 or ctx.author
-    if user1 == user2:
-        await ctx.send(embed=create_embed("❌ Error", "You can't ship someone with themselves!", 0xFF0000))
-        return
-    
-    score = random.randint(0, 100)
-    if score > 90:
-        status = "Perfect Match! 💖"
-    elif score > 70:
-        status = "Great Match! ❤️"
-    elif score > 50:
-        status = "Good Match! 💕"
-    elif score > 30:
-        status = "Maybe... 💘"
+@is_not_blacklisted()
+async def gif(ctx, *, query):
+    """Search for a GIF"""
+    # In a real implementation, you would use Tenor or Giphy API
+    await ctx.send(f"🔍 Searching GIF for: {query}\n*(GIF API not configured)*")
+
+@bot.command()
+@is_not_blacklisted()
+async def say(ctx, *, text):
+    """Make the bot say something"""
+    await ctx.send(text)
+
+@bot.command()
+@is_not_blacklisted()
+async def hug(ctx, member: discord.Member):
+    """Hug someone"""
+    if member == ctx.author:
+        await ctx.send("🤗 You hugged yourself! That's... wholesome?")
     else:
-        status = "Not a great match... 💔"
-    
-    await ctx.send(embed=create_embed("💞 Ship", f"**{user1.display_name}** + **{user2.display_name}**\nCompatibility: **{score}%**\n{status}"))
+        await ctx.send(f"🤗 {ctx.author.mention} hugged {member.mention}!")
 
 @bot.command()
-async def hack(ctx, member: discord.Member = None):
-    """Fake hack (just for fun)"""
-    member = member or ctx.author
-    msg = await ctx.send(embed=create_embed("👨‍💻 Hacking...", "Initializing hack sequence..."))
-    
-    steps = [
-        "Bypassing firewall...",
-        "Accessing mainframe...",
-        "Decrypting passwords...",
-        "Downloading data...",
-        "Covering tracks...",
-        "Hack complete!"
-    ]
-    
-    for step in steps:
-        await asyncio.sleep(1)
-        await msg.edit(embed=create_embed("👨‍💻 Hacking...", step))
-    
-    await asyncio.sleep(1)
-    await msg.edit(embed=create_embed("✅ Hack Complete", f"Successfully 'hacked' {member.display_name}!\n(This was just a joke! 😄)"))
+@is_not_blacklisted()
+async def pat(ctx, member: discord.Member):
+    """Pat someone"""
+    await ctx.send(f"👋 {ctx.author.mention} patted {member.mention}!")
 
 @bot.command()
-async def cat(ctx):
-    """Get a random cat fact"""
+@is_not_blacklisted()
+async def slap(ctx, member: discord.Member):
+    """Slap someone"""
+    await ctx.send(f"👋 {ctx.author.mention} slapped {member.mention}!")
+
+@bot.command()
+@is_not_blacklisted()
+async def rollcall(ctx):
+    """Tag random online members"""
+    online_members = [m for m in ctx.guild.members if m.status != discord.Status.offline and not m.bot]
+    if online_members:
+        random_member = random.choice(online_members)
+        await ctx.send(f"📢 Roll call! {random_member.mention} is present!")
+    else:
+        await ctx.send("😴 Everyone seems to be offline...")
+
+@bot.command()
+@is_not_blacklisted()
+async def randomfact(ctx):
+    """Random fun fact"""
     facts = [
-        "Cats sleep for about 70% of their lives! 😴",
-        "A group of cats is called a clowder! 🐈",
-        "Cats can't taste sweetness! 🍬",
-        "Cats have 32 muscles in each ear! 👂",
-        "The oldest cat lived to be 38 years old! 🎂"
+        "Honey never spoils! Archaeologists have found 3000-year-old honey!",
+        "Octopuses have three hearts! ❤️❤️❤️",
+        "A group of flamingos is called a 'flamboyance'! 🦩",
+        "Bananas are berries, but strawberries are not! 🍌🍓",
+        "The shortest war in history lasted 38 minutes! ⏱️"
     ]
-    await ctx.send(embed=create_embed("🐱 Cat Fact", random.choice(facts)))
+    await ctx.send(f"🧠 **Did you know?** {random.choice(facts)}")
 
-# ========== GAMES COMMANDS (10) ==========
-@bot.command()
-async def rps(ctx, choice: str):
-    """Play Rock Paper Scissors"""
-    choice = choice.lower()
-    if choice not in ["rock", "paper", "scissors"]:
-        await ctx.send(embed=create_embed("❌ Error", "Please choose: rock, paper, or scissors", 0xFF0000))
-        return
+# ========== AI COMMANDS ==========
+@bot.command(name="ask")
+@is_not_blacklisted()
+async def ask_question(ctx, *, question):
+    """Ask AI a question (typo-tolerant)"""
+    fixed_question = fix_typos(question)
     
-    bot_choice = random.choice(["rock", "paper", "scissors"])
-    
-    if choice == bot_choice:
-        result = "It's a tie! 🤝"
-    elif (choice == "rock" and bot_choice == "scissors") or \
-         (choice == "paper" and bot_choice == "rock") or \
-         (choice == "scissors" and bot_choice == "paper"):
-        result = "You win! 🎉"
-    else:
-        result = "I win! 😎"
-    
-    await ctx.send(embed=create_embed("🪨📄✂️ RPS", f"You chose: **{choice}**\nI chose: **{bot_choice}**\n**{result}**"))
+    async with ctx.channel.typing():
+        response = await ask_groq(fixed_question)
+        await ctx.send(f"🤖 **Q:** {question}\n**A:** {response}")
 
 @bot.command()
-async def guess(ctx, number: int = None):
-    """Guess a number between 1-10"""
-    if number is None:
-        await ctx.send(embed=create_embed("🎯 Guess", "Think of a number between 1-10 and I'll try to guess it!\nUse `!guess <number>` to make your guess."))
-        return
-    
-    if number < 1 or number > 10:
-        await ctx.send(embed=create_embed("❌ Error", "Please guess a number between 1-10", 0xFF0000))
-        return
-    
-    bot_guess = random.randint(1, 10)
-    if number == bot_guess:
-        await ctx.send(embed=create_embed("🎯 Guess", f"I guessed **{bot_guess}**! You win! 🎉"))
-    else:
-        await ctx.send(embed=create_embed("🎯 Guess", f"I guessed **{bot_guess}**. Better luck next time!"))
+@is_not_blacklisted()
+async def askai(ctx, *, question):
+    """Smart AI answer"""
+    async with ctx.channel.typing():
+        response = await ask_groq(question, max_tokens=300)
+        await ctx.send(f"🧠 **AI:** {response}")
 
 @bot.command()
-async def math(ctx, *, problem: str = None):
-    """Solve a simple math problem"""
-    if problem is None:
-        await ctx.send(embed=create_embed("🧮 Math", "Give me a simple math problem like `!math 5 + 3` or `!math 10 * 2`"))
-        return
-    
-    try:
-        # Basic safety check
-        problem = problem.replace(" ", "")
-        if any(c not in "0123456789+-*/.() " for c in problem):
-            await ctx.send(embed=create_embed("❌ Error", "Only basic math operations allowed (+, -, *, /)", 0xFF0000))
-            return
-        
-        result = eval(problem)  # Safe because of check above
-        await ctx.send(embed=create_embed("🧮 Math", f"{problem} = **{result}**"))
-    except:
-        await ctx.send(embed=create_embed("❌ Error", "Invalid math problem", 0xFF0000))
-
-@bot.command()
-async def trivia(ctx):
-    """Answer a trivia question"""
-    questions = [
-        {"q": "What is the largest planet in our solar system?", "a": "Jupiter"},
-        {"q": "How many continents are there?", "a": "7"},
-        {"q": "What is the chemical symbol for gold?", "a": "Au"},
-        {"q": "Who wrote Hamlet?", "a": "Shakespeare"},
-        {"q": "What is the capital of France?", "a": "Paris"}
-    ]
-    
-    question = random.choice(questions)
-    await ctx.send(embed=create_embed("❓ Trivia", question["q"]))
-
-@bot.command()
-async def slots(ctx):
-    """Play slot machine"""
-    symbols = ["🍒", "🍋", "🍊", "🍉", "⭐", "7️⃣"]
-    result = [random.choice(symbols) for _ in range(3)]
-    
-    if result[0] == result[1] == result[2]:
-        win = "JACKPOT! 🎉🎉🎉"
-    elif result[0] == result[1] or result[1] == result[2]:
-        win = "Two in a row! 🎉"
-    else:
-        win = "Try again!"
-    
-    await ctx.send(embed=create_embed("🎰 Slots", f"[ {result[0]} | {result[1]} | {result[2]} ]\n{win}"))
-
-@bot.command()
-async def battle(ctx, member: discord.Member = None):
-    """Battle another user"""
-    if member is None:
-        await ctx.send(embed=create_embed("⚔️ Battle", "Mention someone to battle! `!battle @user`"))
-        return
-    
-    if member == ctx.author:
-        await ctx.send(embed=create_embed("❌ Error", "You can't battle yourself!", 0xFF0000))
-        return
-    
-    players = [ctx.author, member]
-    winner = random.choice(players)
-    
-    moves = [
-        "used a powerful spell! 🔥",
-        "swung their mighty sword! ⚔️",
-        "cast a healing spell! 💚",
-        "threw a fireball! 🎯",
-        "used stealth attack! 🥷"
-    ]
-    
-    await ctx.send(embed=create_embed("⚔️ Battle", f"{ctx.author.display_name} {random.choice(moves)}\n{member.display_name} {random.choice(moves)}\n\n**Winner:** {winner.display_name}! 🏆"))
-
-@bot.command()
-async def tictactoe(ctx, member: discord.Member = None):
-    """Start a tic-tac-toe game"""
-    if member is None:
-        await ctx.send(embed=create_embed("❌ Error", "Mention someone to play with! `!tictactoe @user`", 0xFF0000))
-        return
-    
-    await ctx.send(embed=create_embed("⭕ Tic-Tac-Toe", f"{ctx.author.mention} vs {member.mention}\nUse reactions to play! (Game in development)"))
-
-@bot.command()
-async def count(ctx):
-    """Start a counting game"""
-    if ctx.channel.id not in bot_data["game_scores"]:
-        bot_data["game_scores"][ctx.channel.id] = {"count": 0, "last_user": None}
-    
-    current = bot_data["game_scores"][ctx.channel.id]["count"]
-    await ctx.send(embed=create_embed("🔢 Count", f"Current count: **{current}**\nNext number: **{current + 1}**\nSay the next number to continue!"))
-
-@bot.command()
-async def wordchain(ctx, *, word: str = None):
-    """Play word chain game"""
-    if word is None:
-        await ctx.send(embed=create_embed("🔤 Word Chain", "Start with any word! `!wordchain apple`"))
-        return
-    
-    last_letter = word[-1].lower()
-    suggestions = []
-    words = ["apple", "elephant", "tiger", "rabbit", "turtle", "eagle", "egg", "giraffe", "elephant", "tomato"]
-    
-    for w in words:
-        if w[0].lower() == last_letter:
-            suggestions.append(w)
-    
-    if suggestions:
-        await ctx.send(embed=create_embed("🔤 Word Chain", f"Word: **{word}**\nNext word must start with: **{last_letter.upper()}**\nSuggestions: {', '.join(suggestions[:3])}"))
-    else:
-        await ctx.send(embed=create_embed("🔤 Word Chain", f"Word: **{word}**\nNext word must start with: **{last_letter.upper()}**\nNo suggestions found!"))
-
-@bot.command()
-async def leaderboard(ctx):
-    """Show game leaderboard"""
-    if not bot_data["game_scores"]:
-        await ctx.send(embed=create_embed("🏆 Leaderboard", "No scores yet! Play some games first!"))
-        return
-    
-    # Simple leaderboard
-    scores = []
-    for user_id, data in bot_data.get("user_stats", {}).items():
-        if "wins" in data:
-            scores.append((user_id, data["wins"]))
-    
-    scores.sort(key=lambda x: x[1], reverse=True)
-    
-    embed = create_embed("🏆 Leaderboard", "Top players:")
-    for i, (user_id, wins) in enumerate(scores[:10], 1):
-        try:
-            user = await bot.fetch_user(user_id)
-            embed.add_field(name=f"{i}. {user.display_name}", value=f"{wins} wins", inline=False)
-        except:
-            pass
-    
-    await ctx.send(embed=embed)
-
-# ========== MODERATION COMMANDS (15) ==========
-@bot.command()
-@commands.has_permissions(kick_members=True)
-async def kick(ctx, member: discord.Member, *, reason="No reason provided"):
-    """Kick a member"""
-    if member == ctx.author:
-        await ctx.send(embed=create_embed("❌ Error", "You can't kick yourself!", 0xFF0000))
-        return
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send(embed=create_embed("❌ Error", "You can't kick someone with equal or higher role!", 0xFF0000))
-        return
-    
-    await member.kick(reason=reason)
-    await ctx.send(embed=create_embed("👢 Kicked", f"{member.mention} has been kicked.\nReason: {reason}", 0xFFA500))
-
-@bot.command()
-@commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member, *, reason="No reason provided"):
-    """Ban a member"""
-    if member == ctx.author:
-        await ctx.send(embed=create_embed("❌ Error", "You can't ban yourself!", 0xFF0000))
-        return
-    if member.top_role >= ctx.author.top_role:
-        await ctx.send(embed=create_embed("❌ Error", "You can't ban someone with equal or higher role!", 0xFF0000))
-        return
-    
-    await member.ban(reason=reason)
-    await ctx.send(embed=create_embed("🔨 Banned", f"{member.mention} has been banned.\nReason: {reason}", 0xFF0000))
-
-@bot.command()
-@commands.has_permissions(ban_members=True)
-async def unban(ctx, user_id: int):
-    """Unban a user by ID"""
-    try:
-        user = await bot.fetch_user(user_id)
-        await ctx.guild.unban(user)
-        await ctx.send(embed=create_embed("✅ Unbanned", f"{user} has been unbanned.", 0x00FF00))
-    except:
-        await ctx.send(embed=create_embed("❌ Error", "User not found or not banned", 0xFF0000))
-
-@bot.command()
-@commands.has_permissions(moderate_members=True)
-async def timeout(ctx, member: discord.Member, minutes: int = 10, *, reason="No reason provided"):
-    """Timeout a member"""
-    if minutes < 1 or minutes > 10080:
-        await ctx.send(embed=create_embed("❌ Error", "Timeout must be between 1 and 10080 minutes (1 week)", 0xFF0000))
-        return
-    
-    duration = datetime.timedelta(minutes=minutes)
-    await member.timeout(duration, reason=reason)
-    await ctx.send(embed=create_embed("⏰ Timeout", f"{member.mention} has been timed out for {minutes} minute(s).\nReason: {reason}", 0xFFA500))
-
-@bot.command()
-@commands.has_permissions(moderate_members=True)
-async def untimeout(ctx, member: discord.Member):
-    """Remove timeout from a member"""
-    await member.timeout(None)
-    await ctx.send(embed=create_embed("✅ Timeout Removed", f"{member.mention}'s timeout has been removed.", 0x00FF00))
-
-@bot.command()
-@commands.has_permissions(manage_messages=True)
-async def purge(ctx, amount: int = 10):
-    """Delete messages"""
-    if amount < 1 or amount > 100:
-        await ctx.send(embed=create_embed("❌ Error", "Amount must be between 1 and 100", 0xFF0000))
-        return
-    
-    deleted = await ctx.channel.purge(limit=amount + 1)
-    msg = await ctx.send(embed=create_embed("🧹 Purged", f"Deleted {len(deleted) - 1} messages.", 0x00FF00))
-    await asyncio.sleep(3)
-    await msg.delete()
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def slowmode(ctx, seconds: int = 0):
-    """Set slowmode"""
-    if seconds < 0 or seconds > 21600:
-        await ctx.send(embed=create_embed("❌ Error", "Slowmode must be between 0 and 21600 seconds (6 hours)", 0xFF0000))
-        return
-    
-    await ctx.channel.edit(slowmode_delay=seconds)
-    if seconds == 0:
-        await ctx.send(embed=create_embed("✅ Slowmode", "Slowmode disabled.", 0x00FF00))
-    else:
-        await ctx.send(embed=create_embed("🐌 Slowmode", f"Slowmode set to {seconds} second(s).", 0xFFA500))
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def lock(ctx):
-    """Lock the channel"""
-    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=False)
-    await ctx.send(embed=create_embed("🔒 Locked", "Channel locked.", 0xFF0000))
-
-@bot.command()
-@commands.has_permissions(manage_channels=True)
-async def unlock(ctx):
-    """Unlock the channel"""
-    await ctx.channel.set_permissions(ctx.guild.default_role, send_messages=True)
-    await ctx.send(embed=create_embed("🔓 Unlocked", "Channel unlocked.", 0x00FF00))
-
-@bot.command()
-@commands.has_permissions(kick_members=True)
-async def warn(ctx, member: discord.Member, *, reason="No reason provided"):
-    """Warn a member"""
-    user_id = str(member.id)
-    if user_id not in bot_data["warnings"]:
-        bot_data["warnings"][user_id] = []
-    
-    bot_data["warnings"][user_id].append({
-        "reason": reason,
-        "moderator": ctx.author.id,
-        "timestamp": time.time()
-    })
-    
-    await ctx.send(embed=create_embed("⚠️ Warned", f"{member.mention} has been warned.\nReason: {reason}\nTotal warnings: {len(bot_data['warnings'][user_id])}", 0xFFA500))
-
-@bot.command()
-async def warnings(ctx, member: discord.Member = None):
-    """View warnings"""
-    member = member or ctx.author
-    user_id = str(member.id)
-    
-    if user_id not in bot_data["warnings"] or not bot_data["warnings"][user_id]:
-        await ctx.send(embed=create_embed("✅ Clean Record", f"{member.display_name} has no warnings.", 0x00FF00))
-        return
-    
-    warnings = bot_data["warnings"][user_id]
-    embed = create_embed(f"⚠️ Warnings for {member.display_name}", f"Total: {len(warnings)}")
-    
-    for i, warn in enumerate(warnings[-5:], 1):
-        try:
-            mod = await bot.fetch_user(warn["moderator"])
-            mod_name = mod.display_name
-        except:
-            mod_name = "Unknown"
-        
-        time_str = datetime.fromtimestamp(warn["timestamp"]).strftime("%Y-%m-%d")
-        embed.add_field(name=f"Warning #{i}", value=f"Reason: {warn['reason']}\nBy: {mod_name}\nDate: {time_str}", inline=False)
-    
-    await ctx.send(embed=embed)
-
-@bot.command()
-@commands.has_permissions(kick_members=True)
-async def clearwarns(ctx, member: discord.Member):
-    """Clear all warnings for a member"""
-    user_id = str(member.id)
-    if user_id in bot_data["warnings"]:
-        count = len(bot_data["warnings"][user_id])
-        bot_data["warnings"][user_id] = []
-        await ctx.send(embed=create_embed("✅ Cleared", f"Cleared {count} warning(s) for {member.mention}.", 0x00FF00))
-    else:
-        await ctx.send(embed=create_embed("ℹ️ Info", f"{member.display_name} has no warnings to clear.", 0x5865F2))
-
-@bot.command()
-@commands.has_permissions(manage_nicknames=True)
-async def nick(ctx, member: discord.Member, *, nickname: str = None):
-    """Change a member's nickname"""
-    if nickname and len(nickname) > 32:
-        await ctx.send(embed=create_embed("❌ Error", "Nickname must be 32 characters or less", 0xFF0000))
-        return
-    
-    await member.edit(nick=nickname)
-    if nickname:
-        await ctx.send(embed=create_embed("✅ Nickname Changed", f"{member.mention}'s nickname changed to: {nickname}", 0x00FF00))
-    else:
-        await ctx.send(embed=create_embed("✅ Nickname Reset", f"{member.mention}'s nickname has been reset.", 0x00FF00))
-
-@bot.command()
-@commands.has_permissions(manage_roles=True)
-async def role(ctx, action: str, member: discord.Member, *, role_name: str):
-    """Add or remove a role"""
-    action = action.lower()
-    role = discord.utils.get(ctx.guild.roles, name=role_name)
-    
-    if not role:
-        await ctx.send(embed=create_embed("❌ Error", f"Role '{role_name}' not found", 0xFF0000))
-        return
-    
-    if action in ["add", "give"]:
-        await member.add_roles(role)
-        await ctx.send(embed=create_embed("✅ Role Added", f"Added {role.name} to {member.mention}", 0x00FF00))
-    elif action in ["remove", "take"]:
-        await member.remove_roles(role)
-        await ctx.send(embed=create_embed("✅ Role Removed", f"Removed {role.name} from {member.mention}", 0x00FF00))
-    else:
-        await ctx.send(embed=create_embed("❌ Error", "Use: add/give or remove/take", 0xFF0000))
-
-@bot.command()
-@commands.has_permissions(moderate_members=True)
-async def mute(ctx, member: discord.Member):
-    """Mute a member (server mute)"""
-    if member.voice:
-        await member.edit(mute=True)
-        await ctx.send(embed=create_embed("🔇 Muted", f"{member.mention} has been voice muted.", 0xFFA500))
-    else:
-        await ctx.send(embed=create_embed("❌ Error", "User must be in a voice channel", 0xFF0000))
-
-# ========== ADMIN COMMANDS (10) ==========
-@bot.command()
-@is_owner()
-async def setprefix(ctx, new_prefix: str):
-    """Change bot prefix (Owner only)"""
-    if len(new_prefix) > 3:
-        await ctx.send(embed=create_embed("❌ Error", "Prefix must be 3 characters or less", 0xFF0000))
-        return
-    
-    bot.command_prefix = new_prefix
-    await ctx.send(embed=create_embed("✅ Prefix Changed", f"Prefix changed to: `{new_prefix}`", 0x00FF00))
-
-@bot.command()
-@is_owner()
-async def setstatus(ctx, *, status: str):
-    """Change bot status (Owner only)"""
-    await bot.change_presence(activity=discord.Game(name=status))
-    await ctx.send(embed=create_embed("✅ Status Changed", f"Status set to: {status}", 0x00FF00))
-
-@bot.command()
-@is_owner()
-async def setactivity(ctx, activity_type: str, *, name: str):
-    """Change bot activity type (Owner only)"""
-    activity_type = activity_type.lower()
-    
-    if activity_type == "playing":
-        activity = discord.Game(name=name)
-    elif activity_type == "listening":
-        activity = discord.Activity(type=discord.ActivityType.listening, name=name)
-    elif activity_type == "watching":
-        activity = discord.Activity(type=discord.ActivityType.watching, name=name)
-    elif activity_type == "streaming":
-        activity = discord.Activity(type=discord.ActivityType.streaming, name=name, url="https://twitch.tv/")
-    else:
-        await ctx.send(embed=create_embed("❌ Error", "Activity type must be: playing, listening, watching, or streaming", 0xFF0000))
-        return
-    
-    await bot.change_presence(activity=activity)
-    await ctx.send(embed=create_embed("✅ Activity Changed", f"Activity set to: {activity_type} {name}", 0x00FF00))
-
-@bot.command()
-@is_owner()
-async def reload(ctx):
-    """Reload the bot (Owner only)"""
-    await ctx.send(embed=create_embed("🔄 Reloading", "Bot is reloading...", 0xFFA500))
-    os.execv(sys.executable, ['python'] + sys.argv)
-
-@bot.command()
-@is_owner()
-async def shutdown(ctx):
-    """Shutdown the bot (Owner only)"""
-    await ctx.send(embed=create_embed("🛑 Shutdown", "Bot is shutting down...", 0xFF0000))
-    await bot.close()
-
-@bot.command()
-@is_owner()
-async def restart(ctx):
-    """Restart the bot (Owner only)"""
-    await ctx.send(embed=create_embed("🔄 Restarting", "Bot is restarting...", 0xFFA500))
-    await bot.close()
-    os.execv(sys.executable, ['python'] + sys.argv)
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def announce(ctx, *, message):
-    """Make an announcement"""
-    embed = discord.Embed(
-        title="📢 Announcement",
-        description=message,
-        color=0xFFD700,
-        timestamp=datetime.utcnow()
-    )
-    embed.set_footer(text=f"Announced by {ctx.author.display_name}")
-    await ctx.send("@everyone", embed=embed)
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def poll(ctx, *, question):
-    """Create a poll"""
-    embed = discord.Embed(
-        title="📊 Poll",
-        description=question,
-        color=0x5865F2,
-        timestamp=datetime.utcnow()
-    )
-    embed.set_footer(text=f"Poll by {ctx.author.display_name}")
-    msg = await ctx.send(embed=embed)
-    await msg.add_reaction("✅")
-    await msg.add_reaction("❌")
-    await msg.add_reaction("🤷")
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def giveaway(ctx, duration: int, *, prize):
-    """Start a giveaway"""
-    if duration < 1 or duration > 10080:
-        await ctx.send(embed=create_embed("❌ Error", "Duration must be between 1 and 10080 minutes (1 week)", 0xFF0000))
-        return
-    
-    end_time = time.time() + (duration * 60)
-    embed = discord.Embed(
-        title="🎉 Giveaway",
-        description=f"**Prize:** {prize}\n**Duration:** {duration} minute(s)\nReact with 🎉 to enter!",
-        color=0x00FF00,
-        timestamp=datetime.fromtimestamp(end_time)
-    )
-    embed.set_footer(text="Giveaway ends")
-    msg = await ctx.send(embed=embed)
-    await msg.add_reaction("🎉")
-    
-    # Store giveaway data
-    if "giveaways" not in bot_data:
-        bot_data["giveaways"] = []
-    bot_data["giveaways"].append({
-        "message_id": msg.id,
-        "channel_id": ctx.channel.id,
-        "prize": prize,
-        "end_time": end_time,
-        "creator": ctx.author.id
-    })
-
-@bot.command()
-@commands.has_permissions(administrator=True)
-async def config(ctx, setting: str = None, value: str = None):
-    """Configure bot settings"""
-    if setting is None:
-        embed = create_embed("⚙️ Config", "Available settings: prefix, status")
-        embed.add_field(name="Current Config", value=f"Prefix: {PREFIX}\nStatus: {bot.activity}", inline=False)
+@is_not_blacklisted()
+async def summary(ctx, *, text):
+    """Summarize text"""
+    async with ctx.channel.typing():
+        response = await ask_groq(f"Summarize this text in 3 bullet points: {text}", max_tokens=200)
+        embed = discord.Embed(title="📝 Summary", description=response, color=0x5865F2)
         await ctx.send(embed=embed)
-        return
+
+@bot.command()
+@is_not_blacklisted()
+async def generate(ctx, *, prompt):
+    """AI image generation prompt"""
+    # Note: Groq doesn't do images, but we can generate a description
+    async with ctx.channel.typing():
+        response = await ask_groq(f"Describe an image based on: {prompt}", max_tokens=150)
+        await ctx.send(f"🎨 **Image Prompt:** {prompt}\n**Description:** {response}")
+
+@bot.command()
+@is_not_blacklisted()
+async def chat(ctx, *, message):
+    """AI conversation"""
+    user_id = str(ctx.author.id)
+    if user_id not in bot_data.ai_history:
+        bot_data.ai_history[user_id] = []
     
-    await ctx.send(embed=create_embed("⚙️ Config", f"Setting {setting} to {value} (config saved in memory)"))
+    bot_data.ai_history[user_id].append(f"User: {message}")
+    
+    # Keep last 5 messages for context
+    if len(bot_data.ai_history[user_id]) > 5:
+        bot_data.ai_history[user_id] = bot_data.ai_history[user_id][-5:]
+    
+    context = "\n".join(bot_data.ai_history[user_id][-3:])  # Last 3 messages
+    
+    async with ctx.channel.typing():
+        response = await ask_groq(f"{context}\nAI:", max_tokens=200)
+        bot_data.ai_history[user_id].append(f"AI: {response}")
+        await ctx.send(f"💬 **Chat:** {response}")
 
-# ========== PRANK COMMANDS (5) ==========
 @bot.command()
-async def trollkick(ctx, member: discord.Member):
-    """Fake kick (harmless prank)"""
+@is_not_blacklisted()
+async def translate(ctx, text: str, language: str):
+    """Translate text"""
+    async with ctx.channel.typing():
+        response = await ask_groq(f"Translate this to {language}: {text}", max_tokens=100)
+        await ctx.send(f"🌍 **Translation to {language}:** {response}")
+
+@bot.command()
+@is_not_blacklisted()
+async def story(ctx, *, prompt):
+    """Generate a story"""
+    async with ctx.channel.typing():
+        response = await ask_groq(f"Write a short story about: {prompt}", max_tokens=400)
+        embed = discord.Embed(title="📖 Story", description=response, color=0x5865F2)
+        await ctx.send(embed=embed)
+
+@bot.command()
+@is_not_blacklisted()
+async def jokeai(ctx):
+    """AI-generated joke"""
+    async with ctx.channel.typing():
+        response = await ask_groq("Tell me a funny joke", max_tokens=100)
+        await ctx.send(f"😂 **AI Joke:** {response}")
+
+@bot.command()
+@is_not_blacklisted()
+async def advice(ctx, *, topic):
+    """Get AI advice"""
+    async with ctx.channel.typing():
+        response = await ask_groq(f"Give advice about: {topic}", max_tokens=200)
+        await ctx.send(f"💡 **Advice about {topic}:** {response}")
+
+# ========== HELP COMMAND ==========
+@bot.command()
+@is_not_blacklisted()
+async def help(ctx):
+    """Show help menu"""
     embed = discord.Embed(
-        title="👢 Kicked",
-        description=f"{member.mention} has been kicked from the server.",
-        color=0xFFA500,
-        timestamp=datetime.utcnow()
+        title="🤖 DeepSeek Bot Help",
+        description=f"Prefix: `{PREFIX}` | Owner: <@{OWNER_ID}>",
+        color=0x5865F2
     )
-    embed.set_footer(text=f"Kicked by {ctx.author.display_name}")
-    await ctx.send(embed=embed)
-    await asyncio.sleep(2)
-    await ctx.send(f"Just kidding! {member.mention} wasn't actually kicked! 😄")
-
-@bot.command()
-async def fakeban(ctx, member: discord.Member):
-    """Fake ban (harmless prank)"""
-    embed = discord.Embed(
-        title="🔨 Banned",
-        description=f"{member.mention} has been banned from the server.",
-        color=0xFF0000,
-        timestamp=datetime.utcnow()
+    
+    embed.add_field(
+        name="🛡️ Moderation (Owner/Whitelist)",
+        value="`kick`, `ban`, `unban`, `mute`, `unmute`, `timeout`, `untimeout`, `warn`, `warnings`, `clear`, `lock`, `unlock`, `slowmode`, `nick`, `role`, `troll`",
+        inline=False
     )
-    embed.set_footer(text=f"Banned by {ctx.author.display_name}")
+    
+    embed.add_field(
+        name="🎉 Fun Commands",
+        value="`meme`, `joke`, `dice`, `coinflip`, `8ball`, `compliment`, `insult`, `gif`, `say`, `hug`, `pat`, `slap`, `rollcall`, `randomfact`",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🤖 AI Commands",
+        value="`ask`, `askai`, `summary`, `generate`, `chat`, `translate`, `story`, `jokeai`, `advice`",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="⚙️ Admin (Owner Only)",
+        value="`whitelist`, `blacklist`, `showlists`",
+        inline=False
+    )
+    
+    embed.set_footer(text="AI responds to questions automatically! (who/what/when/where/why/how/advice/suggestion)")
     await ctx.send(embed=embed)
-    await asyncio.sleep(2)
-    await ctx.send(f"Gotcha! {member.mention} is still here! 😜")
 
-@bot.command()
-async def fakecrash(ctx):
-    """Fake bot crash"""
-    await ctx.send("⚠️ **SYSTEM ERROR**")
-    await asyncio.sleep(1)
-    await ctx.send("Bot is crashing...")
-    await asyncio.sleep(1)
-    await ctx.send("Just kidding! I'm still here! 🤖")
-
-@bot.command()
-async def ghostping(ctx, member: discord.Member):
-    """Ghost ping someone"""
-    msg = await ctx.send(member.mention)
-    await asyncio.sleep(0.5)
-    await msg.delete()
-    await ctx.send("👻 Boo! Ghost ping!", delete_after=2)
-
-@bot.command()
-async def rickroll(ctx):
-    """Rickroll someone"""
-    await ctx.send("Never gonna give you up\nNever gonna let you down\nNever gonna run around and desert you\n🎵 https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-
-# ========== REMINDER CHECKER ==========
-async def check_reminders():
-    await bot.wait_until_ready()
-    while not bot.is_closed():
-        now = time.time()
-        reminders_to_remove = []
-        
-        for i, reminder in enumerate(bot_data["reminders"]):
-            if now >= reminder["time"]:
-                try:
-                    channel = bot.get_channel(reminder["channel"])
-                    user = await bot.fetch_user(reminder["user"])
-                    if channel:
-                        await channel.send(f"⏰ Reminder for {user.mention}: {reminder['reminder']}")
-                    reminders_to_remove.append(i)
-                except:
-                    reminders_to_remove.append(i)
-        
-        # Remove sent reminders
-        for i in sorted(reminders_to_remove, reverse=True):
-            bot_data["reminders"].pop(i)
-        
-        await asyncio.sleep(60)
+# ========== ERROR HANDLING ==========
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        return
+    elif isinstance(error, commands.CommandOnCooldown):
+        await ctx.send(f"⏰ Cooldown: {error.retry_after:.1f}s")
+    elif isinstance(error, commands.MissingPermissions):
+        await ctx.send("❌ You don't have permission!")
+    elif isinstance(error, commands.MissingRequiredArgument):
+        await ctx.send(f"❌ Missing argument! Use `{PREFIX}help`")
+    else:
+        await ctx.send(f"❌ Error: {str(error)}")
 
 # ========== MAIN ==========
 if __name__ == "__main__":
@@ -973,28 +822,17 @@ if __name__ == "__main__":
     http_thread = threading.Thread(target=run_http_server, daemon=True)
     http_thread.start()
     
-bot = commands.Bot(command_prefix="!", intents=intents)
-
-
-async def check_reminders():
-    while True:
-        await asyncio.sleep(30)
-        print("checking reminders...")
-
-
-@bot.event
-async def setup_hook():
-    asyncio.create_task(check_reminders())
-
-
-bot.run(TOKEN)
-    
     # Run bot
     if TOKEN:
-        print(f"Starting bot on port {PORT}...")
-        print(f"HTTP server: http://localhost:{PORT}")
-        print(f"Total commands: {len(bot.commands)}")
+        print(f"🚀 Starting DeepSeek Bot")
+        print(f"🔒 Owner ID: {OWNER_ID}")
+        print(f"🌐 HTTP Server on port {PORT}")
+        print(f"🤖 AI: {'Ready' if GROQ_TOKEN else 'Disabled (set GROQ_TOKEN)'}")
+        print(f"📊 Whitelisted: {len(bot_data.whitelist)} users")
+        print(f"📋 Blacklisted: {len(bot_data.blacklist)} users")
+        print("✅ Ready for deployment!")
         bot.run(TOKEN)
     else:
-        print("Error: DISCORD_TOKEN environment variable not set!")
-        print("Set it in Render Dashboard -> Environment Variables")
+        print("❌ ERROR: DISCORD_TOKEN environment variable not set!")
+        print("   Set it in Render Dashboard -> Environment Variables")
+        sys.exit(1)
