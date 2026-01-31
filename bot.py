@@ -1,14 +1,131 @@
-"""
-Discord Bot with Groq AI - Complete Version
-Owner ID: 1307042499898118246
-"""
 import os
 import discord
 from discord.ext import commands
 import random
 import asyncio
 import aiohttp
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
+# === WEB SERVER FOR CLOUDFLARE/RENDER ===
+PORT = int(os.environ.get("PORT", 10000))
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # Send a simple 200 response for health checks
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html')
+        self.end_headers()
+        self.wfile.write(b"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Discord Bot with Groq AI</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <style>
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    padding: 20px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    min-height: 100vh;
+                }
+                .container {
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(10px);
+                    border-radius: 20px;
+                    padding: 40px;
+                    margin-top: 50px;
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+                }
+                h1 { 
+                    font-size: 2.5em;
+                    margin-bottom: 10px;
+                    text-align: center;
+                }
+                .status {
+                    background: rgba(76, 175, 80, 0.3);
+                    border-left: 5px solid #4CAF50;
+                    padding: 15px;
+                    margin: 20px 0;
+                    border-radius: 10px;
+                }
+                .features {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 15px;
+                    margin: 30px 0;
+                }
+                .feature {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 15px;
+                    border-radius: 10px;
+                    text-align: center;
+                }
+                .owner-id {
+                    background: rgba(255, 193, 7, 0.2);
+                    padding: 10px;
+                    border-radius: 10px;
+                    text-align: center;
+                    margin: 20px 0;
+                    font-family: monospace;
+                }
+                .emoji { font-size: 2em; margin-bottom: 10px; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🤖 Discord Bot with Groq AI</h1>
+                <div class="owner-id">
+                    <strong>Owner ID:</strong> 1307042499898118246
+                </div>
+                <div class="status">
+                    ✅ <strong>Bot Status:</strong> Online and running
+                </div>
+                <div class="features">
+                    <div class="feature">
+                        <div class="emoji">🤖</div>
+                        <strong>Groq AI Integration</strong>
+                        <p>Powered by Mixtral 8x7b</p>
+                    </div>
+                    <div class="feature">
+                        <div class="emoji">🔒</div>
+                        <strong>35+ Mod Commands</strong>
+                        <p>Kick, ban, mute, trollkick</p>
+                    </div>
+                    <div class="feature">
+                        <div class="emoji">🎮</div>
+                        <strong>20+ Fun Commands</strong>
+                        <p>Games, trivia, economy</p>
+                    </div>
+                    <div class="feature">
+                        <div class="emoji">⚡</div>
+                        <strong>Cloudflare Ready</strong>
+                        <p>Health check compatible</p>
+                    </div>
+                </div>
+                <p style="text-align: center; opacity: 0.8; margin-top: 30px;">
+                    Bot is running on Render with Cloudflare proxy
+                </p>
+            </div>
+        </body>
+        </html>
+        """)
+    
+    def log_message(self, format, *args):
+        # Suppress HTTP server logs unless needed
+        pass
+
+def run_web_server():
+    """Run a minimal HTTP server to keep Cloudflare happy"""
+    server = HTTPServer(('0.0.0.0', PORT), HealthCheckHandler)
+    print(f"✅ Health check server running on port {PORT}")
+    print(f"🔗 Access at: http://localhost:{PORT}")
+    server.serve_forever()
+
+# === DISCORD BOT ===
 # Owner ID
 OWNER_ID = 1307042499898118246
 
@@ -82,6 +199,7 @@ def can_use_mod():
 async def on_ready():
     print(f"✅ {bot.user} is online!")
     print(f"🔒 Owner ID: {OWNER_ID}")
+    print(f"🌐 HTTP Server running on port {PORT}")
     await bot.change_presence(activity=discord.Game(name="!help"))
 
 @bot.event
@@ -705,12 +823,20 @@ async def on_command_error(ctx, error):
 
 # === START BOT ===
 if __name__ == "__main__":
+    # Start web server in background thread
+    web_server_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_server_thread.start()
+    
     token = os.getenv("DISCORD_TOKEN")
     if token:
-        print("🚀 Starting bot...")
-        print(f"🔒 Owner: {OWNER_ID}")
+        print("🚀 Starting Discord bot with Groq AI...")
+        print(f"🔒 Owner ID: {OWNER_ID}")
+        print("🌐 HTTP Server: Running for Cloudflare health checks")
         print("🤖 AI: Enabled (responds to who/what/when/where/why/how/advice/suggestion)")
         print("🎮 Commands: 35+ moderation, 5 AI games, 20+ fun, 10+ utility")
+        print("⚡ Bot is ready to run on Render with Cloudflare!")
         bot.run(token)
     else:
-        print("❌ DISCORD_TOKEN not found!")
+        print("❌ DISCORD_TOKEN environment variable not found!")
+        print("   Set it in Render Dashboard -> Environment Variables")
+        print("   Required: DISCORD_TOKEN, Optional: GROQ_TOKEN")
