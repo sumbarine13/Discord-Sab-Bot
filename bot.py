@@ -14,7 +14,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 # ========== CONFIGURATION ==========
 TOKEN = os.environ.get("DISCORD_TOKEN")
 GROQ_TOKEN = os.environ.get("GROQ_TOKEN")
-PORT = int(os.environ.get("PORT", 10000))
+PORT = int(os.environ.get("PORT", 8080))
 PREFIX = "!"
 OWNER_ID = 1307042499898118246
 BOT_START_TIME = time.time()
