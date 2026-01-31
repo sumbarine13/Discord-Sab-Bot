@@ -973,8 +973,21 @@ if __name__ == "__main__":
     http_thread = threading.Thread(target=run_http_server, daemon=True)
     http_thread.start()
     
-    # Start reminder checker
-    bot.loop.create_task(check_reminders())
+  bot = commands.Bot(command_prefix="!", intents=intents)
+
+
+async def check_reminders():
+    while True:
+        await asyncio.sleep(30)
+        print("checking reminders...")
+
+
+@bot.event
+async def setup_hook():
+    asyncio.create_task(check_reminders())
+
+
+bot.run(TOKEN)
     
     # Run bot
     if TOKEN:
