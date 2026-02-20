@@ -383,7 +383,8 @@ def is_not_blacklisted():
         return ctx.author.id not in bot_data["blacklist"]
     return commands.check(predicate)
 
-# ================= AI FUNCTION =================
+# ================= AI FUNCTIONS =================
+# Original AI function (uses Mixtral) – for existing commands
 async def ask_groq(question, max_tokens=150):
     if not GROQ_TOKEN:
         return "🤖 AI not configured. Ask the owner to set GROQ_TOKEN."
@@ -392,6 +393,38 @@ async def ask_groq(question, max_tokens=150):
         payload = {
             "model": "mixtral-8x7b-32768",
             "messages": [{"role": "user", "content": question}],
+            "temperature": 0.7,
+            "max_tokens": max_tokens
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=15
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    return f"⚠️ AI error (status {response.status})"
+    except asyncio.TimeoutError:
+        return "❌ AI request timed out."
+    except Exception as e:
+        return f"❌ AI failed: {e}"
+
+# New AI function for auto‑respond (uses LLaMA 3 and a system prompt)
+async def ask_groq_with_prompt(system_prompt, user_message, max_tokens=300):
+    if not GROQ_TOKEN:
+        return "🤖 AI not configured."
+    try:
+        headers = {"Authorization": f"Bearer {GROQ_TOKEN}"}
+        payload = {
+            "model": "llama3-8b-8192",  # or "llama3-70b-8192" if available
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
             "temperature": 0.7,
             "max_tokens": max_tokens
         }
@@ -431,7 +464,7 @@ async def on_command_error(ctx, error):
     else:
         await ctx.send(f"❌ Error: {error}")
 
-# ================= NEW AUTO-RESPOND FEATURE =================
+# ================= AUTO-RESPOND FEATURE (with friend's prompt) =================
 @bot.event
 async def on_message(message):
     # Ignore messages from bots (including itself)
@@ -450,9 +483,21 @@ async def on_message(message):
         has_question_mark = "?" in message.content
 
         if has_question_word or has_question_mark:
-            # Use AI to generate a response
+            # System prompt from friend
+            system_prompt = (
+                "You are a helpful assistant in a Discord server.\n\n"
+                "Your task:\n"
+                "- Only answer messages in channel ID 1416480455670239232.\n"
+                "- Only respond to messages that are questions, i.e., messages that:\n"
+                "  - Contain question words like 'who', 'what', 'when', 'where', 'why', 'how', OR\n"
+                "  - End with a question mark '?'\n"
+                "- Reply directly to the user with a helpful and concise answer.\n"
+                "- Do not change anything else about the message, formatting, or context.\n"
+                "- Do not answer messages that are not questions.\n"
+                "- Keep your tone friendly, informative, and respectful."
+            )
             async with message.channel.typing():
-                response = await ask_groq(message.content)
+                response = await ask_groq_with_prompt(system_prompt, message.content)
                 await message.reply(response)  # Reply to the user's message
 
     # Always process commands (for prefix messages this will run the command; for others it does nothing)
