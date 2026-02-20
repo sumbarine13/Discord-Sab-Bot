@@ -10,7 +10,7 @@ import json
 import sys
 import logging
 import ast
-import groq  # <-- NEW: Groq Python client
+from groq import Groq  # <-- FIXED: import from groq
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -384,34 +384,33 @@ def is_not_blacklisted():
         return ctx.author.id not in bot_data["blacklist"]
     return commands.check(predicate)
 
-# ================= AI SETUP (NEW: Groq Python Client) =================
+# ================= AI SETUP (FIXED: using from groq import Groq) =================
 GROQ_MODEL = "llama-3.3-70b-versatile"
 ai_client = None
 if GROQ_TOKEN:
     try:
-        ai_client = groq.Groq(api_key=GROQ_TOKEN)
+        ai_client = Groq(api_key=GROQ_TOKEN)  # <-- FIXED: direct Groq, not groq.Groq
         logging.info("✅ Groq client initialized")
     except Exception as e:
         logging.error(f"❌ Failed to initialize Groq client: {e}")
 
-async def ask_groq(question, max_tokens=150):  # max_tokens kept for compatibility but not used
+async def ask_groq(question, max_tokens=150):  # max_tokens kept for compatibility
     """Ask AI using Groq Python client (model: llama-3.3-70b-versatile, temp=0.4, max_tokens=300)"""
     if not ai_client:
         return "🤖 AI not configured. Ask the owner to set GROQ_TOKEN."
     try:
-        # Use the exact configuration from user
         completion = ai_client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": question}],
             temperature=0.4,
-            max_tokens=300  # Fixed as per user request
+            max_tokens=300
         )
         return completion.choices[0].message.content
     except Exception as e:
         logging.error(f"Groq API error: {e}")
         return f"❌ AI failed: {e}"
 
-async def ask_groq_with_prompt(system_prompt, user_message, max_tokens=300):  # max_tokens kept for compatibility
+async def ask_groq_with_prompt(system_prompt, user_message, max_tokens=300):
     """Ask AI with system prompt using Groq Python client"""
     if not ai_client:
         return "🤖 AI not configured."
@@ -423,7 +422,7 @@ async def ask_groq_with_prompt(system_prompt, user_message, max_tokens=300):  # 
                 {"role": "user", "content": user_message}
             ],
             temperature=0.4,
-            max_tokens=300  # Fixed as per user request
+            max_tokens=300
         )
         return completion.choices[0].message.content
     except Exception as e:
