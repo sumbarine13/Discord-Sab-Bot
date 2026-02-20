@@ -3,198 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek Bot Control</title>
+    <title>DeepSeek Bot · Dashboard</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+        }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
+            background: linear-gradient(145deg, #0a0c10 0%, #1a1e26 100%);
+            color: #e4e7eb;
             min-height: 100vh;
-            padding: 20px;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
         }
         .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            margin-top: 50px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            max-width: 1400px;
+            width: 100%;
         }
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            background: linear-gradient(90deg, #5865F2, #7289da);
+        /* header */
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #2a2f3a;
+        }
+        .title h1 {
+            font-size: 2.8rem;
+            background: linear-gradient(135deg, #9f7aea, #63b3ed);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-size: 2.5em;
+            background-clip: text;
+            font-weight: 700;
+            letter-spacing: -0.5px;
         }
-        .status {
-            background: rgba(76, 175, 80, 0.2);
-            border-left: 5px solid #4CAF50;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 10px;
+        .title p {
+            color: #9aa4b8;
+            margin-top: 0.25rem;
+            font-size: 1.1rem;
         }
-        .control-panel {
-            margin-top: 30px;
+        .stats {
+            display: flex;
+            gap: 2rem;
+            background: #1e222b;
+            padding: 1rem 2rem;
+            border-radius: 60px;
+            border: 1px solid #2f3542;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6);
         }
-        .input-group {
-            margin-bottom: 20px;
-        }
-        label {
-            display: block;
-            margin-bottom: 8px;
-            color: #b0b0b0;
-        }
-        input {
-            width: 100%;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            color: white;
-            font-size: 1em;
-        }
-        input:focus {
-            outline: none;
-            border-color: #5865F2;
-        }
-        button {
-            width: 100%;
-            padding: 15px;
-            background: #5865F2;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.1em;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.3s;
-            margin-top: 10px;
-        }
-        button:hover {
-            background: #4752c4;
-        }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            margin: 30px 0;
-        }
-        .feature {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 15px;
-            border-radius: 10px;
+        .stat-item {
             text-align: center;
         }
-        .emoji { font-size: 2em; margin-bottom: 10px; }
-        .info {
-            background: rgba(255, 193, 7, 0.1);
-            border-left: 5px solid #FFC107;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 10px;
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+            line-height: 1.2;
+        }
+        .stat-label {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #8f9bb3;
+        }
+        /* status bar */
+        .status-bar {
+            background: #1a1e28;
+            border-radius: 40px;
+            padding: 1rem 2rem;
+            margin-bottom: 2.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            border: 1px solid #2d3340;
+        }
+        .badge {
+            background: #10b981;
+            color: white;
+            font-weight: 600;
+            padding: 0.3rem 1rem;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge.offline { background: #ef4444; }
+        .info-row {
+            display: flex;
+            gap: 2rem;
+            flex-wrap: wrap;
+        }
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #b9c2d4;
+        }
+        .info-item i {
+            font-style: normal;
+            color: #63b3ed;
+            font-weight: 600;
+        }
+        /* command grid */
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin: 2rem 0 1.2rem 0;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title span {
+            background: #2f3542;
+            padding: 0.2rem 0.8rem;
+            border-radius: 40px;
+            font-size: 1rem;
+            color: #b9c2d4;
+        }
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .command-card {
+            background: #1a1e28;
+            border: 1px solid #2a2f3a;
+            border-radius: 16px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: #cfd9e8;
+            transition: 0.15s;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .command-card:hover {
+            border-color: #63b3ed;
+            background: #242a36;
+            transform: translateY(-2px);
+            color: white;
+        }
+        .command-card .prefix {
+            color: #9f7aea;
+            font-weight: 700;
+            margin-right: 4px;
+        }
+        .footer {
+            margin-top: 4rem;
+            text-align: center;
+            color: #6a7285;
+            font-size: 0.9rem;
+            border-top: 1px solid #262c38;
+            padding-top: 2rem;
+        }
+        .footer a {
+            color: #9f7aea;
+            text-decoration: none;
+        }
+        @media (max-width: 700px) {
+            .header {
+                flex-direction: column;
+                align-items: start;
+                gap: 1rem;
+            }
+            .stats {
+                width: 100%;
+                justify-content: space-around;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🤖 DeepSeek Bot Control</h1>
-        
-        <div class="status">
-            <strong>✅ Bot Status:</strong> Online and Running
-        </div>
-        
-        <div class="info">
-            <strong>🔑 Password:</strong> Sumbarine13
-        </div>
-        
-        <div class="features">
-            <div class="feature">
-                <div class="emoji">🔒</div>
-                <strong>Moderation</strong>
-                <p>16 commands</p>
+        <!-- header -->
+        <div class="header">
+            <div class="title">
+                <h1>🤖 DeepSeek Bot</h1>
+                <p>Multi‑purpose Discord bot with 80+ commands</p>
             </div>
-            <div class="feature">
-                <div class="emoji">🤖</div>
-                <strong>Groq AI</strong>
-                <p>AI-powered responses</p>
-            </div>
-            <div class="feature">
-                <div class="emoji">🎭</div>
-                <strong>Troll Command</strong>
-                <p>Fake ban prank</p>
-            </div>
-            <div class="feature">
-                <div class="emoji">⚡</div>
-                <strong>Fast & Stable</strong>
-                <p>Render + Cloudflare</p>
-            </div>
-        </div>
-        
-        <div class="control-panel">
-            <div class="input-group">
-                <label for="password">🔐 Control Password</label>
-                <input type="password" id="password" placeholder="Enter password to access controls">
-            </div>
-            
-            <button onclick="authenticate()">🔓 Authenticate</button>
-            
-            <div id="controls" style="display: none; margin-top: 30px;">
-                <div class="input-group">
-                    <label for="command">💻 Bot Command</label>
-                    <input type="text" id="command" placeholder="Enter bot command (e.g., !help)">
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="serverCount">42</div>
+                    <div class="stat-label">SERVERS</div>
                 </div>
-                <button onclick="sendCommand()">🚀 Send Command</button>
-                <button onclick="restartBot()" style="background: #FF9800; margin-top: 10px;">🔄 Restart Bot</button>
-                <button onclick="shutdownBot()" style="background: #F44336; margin-top: 10px;">🛑 Shutdown Bot</button>
+                <div class="stat-item">
+                    <div class="stat-value" id="commandCount">86</div>
+                    <div class="stat-label">COMMANDS</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="uptime">24h</div>
+                    <div class="stat-label">UPTIME</div>
+                </div>
             </div>
         </div>
-        
-        <div style="text-align: center; margin-top: 40px; color: #888; font-size: 0.9em;">
-            <p>Owner ID: 1307042499898118246</p>
-            <p>Commands: 65+ | Prefix: ! | AI: Groq Mixtral</p>
+
+        <!-- status -->
+        <div class="status-bar">
+            <div class="badge" id="statusBadge">🟢 ONLINE</div>
+            <div class="info-row">
+                <div class="info-item"><i>📋 Prefix</i> <code style="background:#2d3340; padding:4px 8px; border-radius:8px;">!</code></div>
+                <div class="info-item"><i>👑 Owner</i> <code>1307042499898118246</code></div>
+                <div class="info-item"><i>🤖 AI</i> <span id="aiStatus">✅ active</span></div>
+            </div>
+        </div>
+
+        <!-- command sections (static lists) -->
+        <div class="section-title">🛡️ Moderation <span>15</span></div>
+        <div class="command-grid" id="modGrid">
+            <!-- will be filled by JS -->
+        </div>
+
+        <div class="section-title">🎉 Fun <span>30</span></div>
+        <div class="command-grid" id="funGrid"></div>
+
+        <div class="section-title">🛠️ Utility <span>15</span></div>
+        <div class="command-grid" id="utilGrid"></div>
+
+        <div class="section-title">🤖 AI <span>15</span></div>
+        <div class="command-grid" id="aiGrid"></div>
+
+        <div class="section-title">💰 Economy <span>5</span></div>
+        <div class="command-grid" id="ecoGrid"></div>
+
+        <div class="section-title">⚙️ Owner only <span>6</span></div>
+        <div class="command-grid" id="ownerGrid"></div>
+
+        <div class="footer">
+            ⚡ Powered by Groq AI · <a href="https://github.com/your-repo" target="_blank">GitHub</a> · Ready for production
         </div>
     </div>
-    
+
     <script>
-        const PASSWORD = "Sumbarine13";
-        
-        function authenticate() {
-            const password = document.getElementById('password').value;
-            if (password === PASSWORD) {
-                document.getElementById('controls').style.display = 'block';
-                alert('✅ Authentication successful!');
-            } else {
-                alert('❌ Incorrect password!');
-            }
+        // Command lists (copy from your bot's help)
+        const modCommands = ["kick", "ban", "timeout", "untimeout", "warn", "warnings", "clear", "lock", "unlock", "slowmode", "nick", "role", "mute", "unmute", "trollkick"];
+        const funCommands = ["meme", "dice", "coinflip", "8ball", "joke", "rps", "randomfact", "compliment", "insult", "roast", "slap", "hug", "pat", "kiss", "cuddle", "tickle", "poke", "wave", "highfive", "dance", "cry", "laugh", "think", "shrug", "clap", "facepalm", "tableflip", "unflip"];
+        const utilCommands = ["avatar", "serverinfo", "userinfo", "poll", "say", "echo", "embed", "ping", "uptime", "stats", "invite", "support", "math", "choose", "flip"];
+        const aiCommands = ["ask", "askai", "summary", "translate", "define", "aijoke", "aipoem", "aistory", "aicode", "aiexplain", "aiadvice", "aiidea", "aifact", "airiddle", "aiquote"];
+        const ecoCommands = ["level", "rank", "leaderboard", "daily", "rep"];
+        const ownerCommands = ["whitelist", "blacklist", "showlists"];
+
+        function fillGrid(gridId, commands) {
+            const grid = document.getElementById(gridId);
+            grid.innerHTML = commands.map(cmd => `<div class="command-card"><span class="prefix">!</span>${cmd}</div>`).join('');
         }
-        
-        function sendCommand() {
-            const command = document.getElementById('command').value;
-            if (command) {
-                alert(`Command sent: ${command}\n(Simulated - In real implementation would call bot API)`);
-                document.getElementById('command').value = '';
-            }
-        }
-        
-        function restartBot() {
-            if (confirm('Are you sure you want to restart the bot?')) {
-                alert('🔄 Bot restarting...');
-            }
-        }
-        
-        function shutdownBot() {
-            if (confirm('Are you sure you want to shutdown the bot?')) {
-                alert('🛑 Bot shutting down...');
-            }
-        }
-        
-        // Auto-focus password field
-        document.getElementById('password').focus();
+
+        fillGrid('modGrid', modCommands);
+        fillGrid('funGrid', funCommands);
+        fillGrid('utilGrid', utilCommands);
+        fillGrid('aiGrid', aiCommands);
+        fillGrid('ecoGrid', ecoCommands);
+        fillGrid('ownerGrid', ownerCommands);
+
+        // Optional: fetch real stats from your bot's /status endpoint
+        // (if this HTML is served from the same domain)
+        fetch('/status')
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'online') {
+                    document.getElementById('statusBadge').innerHTML = '🟢 ONLINE';
+                    document.getElementById('serverCount').innerText = data.servers || '?';
+                    document.getElementById('commandCount').innerText = data.commands || '?';
+                    const hours = Math.floor(data.uptime / 3600);
+                    document.getElementById('uptime').innerText = hours + 'h';
+                    document.getElementById('aiStatus').innerText = data.ai ? '✅ active' : '❌ disabled';
+                }
+            })
+            .catch(() => {
+                // fallback to static
+            });
     </script>
 </body>
 </html>
