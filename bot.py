@@ -10,6 +10,7 @@ import json
 import sys
 import logging
 import ast
+import groq  # <-- NEW: Groq Python client
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -383,66 +384,50 @@ def is_not_blacklisted():
         return ctx.author.id not in bot_data["blacklist"]
     return commands.check(predicate)
 
-# ================= AI FUNCTIONS =================
-# Original AI function (uses Mixtral) – for existing commands
-async def ask_groq(question, max_tokens=150):
-    if not GROQ_TOKEN:
+# ================= AI SETUP (NEW: Groq Python Client) =================
+GROQ_MODEL = "llama-3.3-70b-versatile"
+ai_client = None
+if GROQ_TOKEN:
+    try:
+        ai_client = groq.Groq(api_key=GROQ_TOKEN)
+        logging.info("✅ Groq client initialized")
+    except Exception as e:
+        logging.error(f"❌ Failed to initialize Groq client: {e}")
+
+async def ask_groq(question, max_tokens=150):  # max_tokens kept for compatibility but not used
+    """Ask AI using Groq Python client (model: llama-3.3-70b-versatile, temp=0.4, max_tokens=300)"""
+    if not ai_client:
         return "🤖 AI not configured. Ask the owner to set GROQ_TOKEN."
     try:
-        headers = {"Authorization": f"Bearer {GROQ_TOKEN}"}
-        payload = {
-            "model": "mixtral-8x7b-32768",
-            "messages": [{"role": "user", "content": question}],
-            "temperature": 0.7,
-            "max_tokens": max_tokens
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=15
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result["choices"][0]["message"]["content"]
-                else:
-                    return f"⚠️ AI error (status {response.status})"
-    except asyncio.TimeoutError:
-        return "❌ AI request timed out."
+        # Use the exact configuration from user
+        completion = ai_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": question}],
+            temperature=0.4,
+            max_tokens=300  # Fixed as per user request
+        )
+        return completion.choices[0].message.content
     except Exception as e:
+        logging.error(f"Groq API error: {e}")
         return f"❌ AI failed: {e}"
 
-# New AI function for auto‑respond (uses LLaMA 3 and a system prompt)
-async def ask_groq_with_prompt(system_prompt, user_message, max_tokens=300):
-    if not GROQ_TOKEN:
+async def ask_groq_with_prompt(system_prompt, user_message, max_tokens=300):  # max_tokens kept for compatibility
+    """Ask AI with system prompt using Groq Python client"""
+    if not ai_client:
         return "🤖 AI not configured."
     try:
-        headers = {"Authorization": f"Bearer {GROQ_TOKEN}"}
-        payload = {
-            "model": "llama3-8b-8192",  # or "llama3-70b-8192" if available
-            "messages": [
+        completion = ai_client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ],
-            "temperature": 0.7,
-            "max_tokens": max_tokens
-        }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=15
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return result["choices"][0]["message"]["content"]
-                else:
-                    return f"⚠️ AI error (status {response.status})"
-    except asyncio.TimeoutError:
-        return "❌ AI request timed out."
+            temperature=0.4,
+            max_tokens=300  # Fixed as per user request
+        )
+        return completion.choices[0].message.content
     except Exception as e:
+        logging.error(f"Groq API error (with prompt): {e}")
         return f"❌ AI failed: {e}"
 
 # ================= EVENTS =================
@@ -464,7 +449,7 @@ async def on_command_error(ctx, error):
     else:
         await ctx.send(f"❌ Error: {error}")
 
-# ================= AUTO-RESPOND FEATURE (with friend's prompt) =================
+# ================= AUTO-RESPOND FEATURE =================
 @bot.event
 async def on_message(message):
     # Ignore messages from bots (including itself)
@@ -498,9 +483,9 @@ async def on_message(message):
             )
             async with message.channel.typing():
                 response = await ask_groq_with_prompt(system_prompt, message.content)
-                await message.reply(response)  # Reply to the user's message
+                await message.reply(response)
 
-    # Always process commands (for prefix messages this will run the command; for others it does nothing)
+    # Always process commands
     await bot.process_commands(message)
 
 # ================= MODERATION COMMANDS (15) =================
@@ -635,13 +620,10 @@ async def unmute(ctx, member: discord.Member):
 async def purge(ctx, amount: int):
     await clear(ctx, amount)
 
-# ================= TROLL KICK (SPECIAL REQUEST) =================
+# ================= TROLL KICK =================
 @bot.command()
 @is_mod()
 async def trollkick(ctx, member: discord.Member):
-    """
-    Prank a user: send a fake ban message with a rejoin link (valid 10 min).
-    """
     if member == ctx.author:
         await ctx.send("❌ You can't troll yourself.")
         return
@@ -1006,91 +988,91 @@ async def askai(ctx, *, question):
 @is_not_blacklisted()
 async def summary(ctx, *, text):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Summarize this: {text}", max_tokens=200)
+        response = await ask_groq(f"Summarize this: {text}")
         await ctx.send(f"📝 **Summary:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def translate(ctx, lang: str, *, text):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Translate this to {lang}: {text}", max_tokens=200)
+        response = await ask_groq(f"Translate this to {lang}: {text}")
         await ctx.send(f"🌍 **Translation to {lang}:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def define(ctx, *, word):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Define '{word}'", max_tokens=100)
+        response = await ask_groq(f"Define '{word}'")
         await ctx.send(f"📖 **Definition:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aijoke(ctx):
     async with ctx.channel.typing():
-        response = await ask_groq("Tell me a funny joke", max_tokens=100)
+        response = await ask_groq("Tell me a funny joke")
         await ctx.send(f"😂 **AI Joke:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aipoem(ctx, *, topic):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Write a short poem about {topic}", max_tokens=200)
+        response = await ask_groq(f"Write a short poem about {topic}")
         await ctx.send(f"📜 **Poem about {topic}:**\n{response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aistory(ctx, *, prompt):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Write a very short story about: {prompt}", max_tokens=300)
+        response = await ask_groq(f"Write a very short story about: {prompt}")
         await ctx.send(f"📖 **Story:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aicode(ctx, *, description):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Generate code snippet for: {description}. Provide only code with brief explanation.", max_tokens=400)
+        response = await ask_groq(f"Generate code snippet for: {description}. Provide only code with brief explanation.")
         await ctx.send(f"💻 **Code:**\n{response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aiexplain(ctx, *, concept):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Explain '{concept}' in simple terms", max_tokens=200)
+        response = await ask_groq(f"Explain '{concept}' in simple terms")
         await ctx.send(f"🔍 **Explanation:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aiadvice(ctx, *, topic):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Give me advice about {topic}", max_tokens=200)
+        response = await ask_groq(f"Give me advice about {topic}")
         await ctx.send(f"💡 **Advice:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aiidea(ctx, *, category):
     async with ctx.channel.typing():
-        response = await ask_groq(f"Give me a creative idea for {category}", max_tokens=150)
+        response = await ask_groq(f"Give me a creative idea for {category}")
         await ctx.send(f"💭 **Idea:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aifact(ctx):
     async with ctx.channel.typing():
-        response = await ask_groq("Tell me a random interesting fact", max_tokens=100)
+        response = await ask_groq("Tell me a random interesting fact")
         await ctx.send(f"🧠 **AI Fact:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def airiddle(ctx):
     async with ctx.channel.typing():
-        response = await ask_groq("Give me a riddle, then provide the answer after a pause", max_tokens=150)
+        response = await ask_groq("Give me a riddle, then provide the answer after a pause")
         await ctx.send(f"🤔 **Riddle:** {response}")
 
 @bot.command()
 @is_not_blacklisted()
 async def aiquote(ctx):
     async with ctx.channel.typing():
-        response = await ask_groq("Give me an inspirational quote", max_tokens=100)
+        response = await ask_groq("Give me an inspirational quote")
         await ctx.send(f"✨ **Quote:** {response}")
 
 # ================= ECONOMY (MOCK) (5) =================
